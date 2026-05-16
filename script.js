@@ -1,8 +1,8 @@
 /* ============================================
-   TURING MACHINE SIMULATOR — LOGIC
+   SIMULADOR DE MAQUINA DE TURING - LOGICA
    ============================================ */
 
-// ============ DOM References ============
+// ============ Referencias del DOM ============
 const DOM = {
   inputString: document.getElementById('input-string'),
   tapeAlphabet: document.getElementById('tape-alphabet'),
@@ -13,19 +13,19 @@ const DOM = {
   logContainer: document.getElementById('log-container'),
   definitionContent: document.getElementById('definition-content'),
 
-  // Status displays
+  // Indicadores de estado
   currentState: document.getElementById('current-state'),
   currentSymbol: document.getElementById('current-symbol'),
   stepCount: document.getElementById('step-count'),
   machineStatus: document.getElementById('machine-status'),
 
-  // Cards
+  // Tarjetas
   cardState: document.getElementById('card-state'),
   cardSymbol: document.getElementById('card-symbol'),
   cardSteps: document.getElementById('card-steps'),
   cardStatus: document.getElementById('card-status'),
 
-  // Buttons
+  // Botones
   btnInit: document.getElementById('btn-init'),
   btnStep: document.getElementById('btn-step'),
   btnAuto: document.getElementById('btn-auto'),
@@ -33,22 +33,26 @@ const DOM = {
   btnAddTransition: document.getElementById('btn-add-transition'),
   btnLoadExample: document.getElementById('btn-load-example'),
 
-  // Speed
+  // Velocidad
   speedSlider: document.getElementById('speed-slider'),
 
-  // Head indicator
+  // Indicador del cabezal
   headIndicator: document.querySelector('.head-indicator'),
+
+  // Menu de ejemplos
+  exampleDropdown: document.getElementById('example-dropdown'),
+  exampleMenu: document.getElementById('example-menu'),
 };
 
 
-// ============ Turing Machine Class ============
+// ============ Clase Maquina de Turing ============
 class TuringMachine {
   constructor() {
     this.tape = [];
     this.headPosition = 0;
     this.currentState = '';
     this.steps = 0;
-    this.transitions = {};  // { "state,symbol": { nextState, writeSymbol, direction } }
+    this.transitions = {};  // { "estado,simbolo": { nextState, writeSymbol, direction } }
     this.initialState = '';
     this.finalStates = new Set();
     this.isRunning = false;
@@ -56,48 +60,48 @@ class TuringMachine {
     this.autoInterval = null;
     this.blankSymbol = 'B';
 
-    // Formal definition components
-    this.Q = new Set();      // States
-    this.Sigma = new Set();   // Input alphabet
-    this.Gamma = new Set();   // Tape alphabet
+    // Componentes de la definicion formal
+    this.Q = new Set();      // Estados
+    this.Sigma = new Set();   // Alfabeto de entrada
+    this.Gamma = new Set();   // Alfabeto de cinta
   }
 
   /**
-   * Initialize the machine with configuration
+   * Inicializar la maquina con la configuracion dada
    */
   init(inputString, initialState, finalStates, transitionsList) {
-    // Parse tape
+    // Procesar cinta
     this.tape = inputString.split('');
     if (this.tape.length === 0) {
       this.tape = [this.blankSymbol];
     }
 
-    // Add padding blanks
+    // Agregar blancos de relleno
     this.tape.unshift(this.blankSymbol);
     this.tape.push(this.blankSymbol);
 
-    this.headPosition = 1; // Start at first real symbol
+    this.headPosition = 1; // Iniciar en el primer simbolo real
     this.initialState = initialState;
     this.currentState = initialState;
     this.steps = 0;
     this.isRunning = true;
     this.isFinished = false;
 
-    // Parse final states
+    // Procesar estados finales
     this.finalStates = new Set(
       finalStates.split(',').map(s => s.trim()).filter(Boolean)
     );
 
-    // Parse transitions
+    // Procesar transiciones
     this.transitions = {};
     this.Q = new Set();
     this.Sigma = new Set();
     this.Gamma = new Set();
 
-    // Add blank to Gamma
+    // Agregar blanco a Gamma
     this.Gamma.add(this.blankSymbol);
 
-    // Add initial and final states
+    // Agregar estados inicial y finales
     this.Q.add(initialState);
     this.finalStates.forEach(s => this.Q.add(s));
 
@@ -109,18 +113,18 @@ class TuringMachine {
         direction: t.direction.toUpperCase(),
       };
 
-      // Collect formal definition sets
+      // Recopilar conjuntos de la definicion formal
       this.Q.add(t.state);
       this.Q.add(t.nextState);
       this.Gamma.add(t.readSymbol);
       this.Gamma.add(t.writeSymbol);
 
-      // Sigma is input alphabet (Gamma minus blank)
+      // Sigma es el alfabeto de entrada (Gamma menos blanco)
       if (t.readSymbol !== this.blankSymbol) this.Sigma.add(t.readSymbol);
       if (t.writeSymbol !== this.blankSymbol) this.Sigma.add(t.writeSymbol);
     }
 
-    // Add tape symbols to sets
+    // Agregar simbolos de la cinta a los conjuntos
     for (const sym of this.tape) {
       this.Gamma.add(sym);
       if (sym !== this.blankSymbol) this.Sigma.add(sym);
@@ -128,16 +132,16 @@ class TuringMachine {
   }
 
   /**
-   * Execute one step of the machine
-   * @returns {object|null} Step result or null if finished
+   * Ejecutar un paso de la maquina
+   * @returns {object|null} Resultado del paso o null si termino
    */
   step() {
     if (this.isFinished) return null;
 
-    // Read current symbol
+    // Leer simbolo actual
     const readSymbol = this.tape[this.headPosition] || this.blankSymbol;
 
-    // Check if in final state
+    // Verificar si esta en estado final
     if (this.finalStates.has(this.currentState)) {
       this.isFinished = true;
       this.isRunning = false;
@@ -149,7 +153,7 @@ class TuringMachine {
       };
     }
 
-    // Look up transition
+    // Buscar transicion
     const key = `${this.currentState},${readSymbol}`;
     const transition = this.transitions[key];
 
@@ -164,31 +168,31 @@ class TuringMachine {
       };
     }
 
-    // Store previous state for logging
+    // Guardar estado anterior para el registro
     const prevState = this.currentState;
     const prevSymbol = readSymbol;
 
-    // Apply transition
+    // Aplicar transicion
     this.tape[this.headPosition] = transition.writeSymbol;
     this.currentState = transition.nextState;
     this.steps++;
 
-    // Move head
+    // Mover cabezal
     if (transition.direction === 'R') {
       this.headPosition++;
-      // Extend tape to the right if needed
+      // Extender cinta a la derecha si es necesario
       if (this.headPosition >= this.tape.length) {
         this.tape.push(this.blankSymbol);
       }
     } else if (transition.direction === 'L') {
       this.headPosition--;
-      // Extend tape to the left if needed
+      // Extender cinta a la izquierda si es necesario
       if (this.headPosition < 0) {
         this.tape.unshift(this.blankSymbol);
         this.headPosition = 0;
       }
     }
-    // 'S' (Stay) — head does not move
+    // 'S' (Neutro) - el cabezal no se mueve
 
     return {
       type: 'step',
@@ -204,7 +208,7 @@ class TuringMachine {
   }
 
   /**
-   * Get the tape content for display
+   * Obtener contenido de la cinta para mostrar
    */
   getTapeDisplay() {
     return {
@@ -214,7 +218,7 @@ class TuringMachine {
   }
 
   /**
-   * Get formal definition
+   * Obtener definicion formal
    */
   getFormalDefinition() {
     return {
@@ -229,7 +233,7 @@ class TuringMachine {
 }
 
 
-// ============ UI Controller ============
+// ============ Controlador de Interfaz ============
 class UIController {
   constructor() {
     this.machine = new TuringMachine();
@@ -237,19 +241,38 @@ class UIController {
     this.transitionRowCount = 0;
 
     this.bindEvents();
-    this.addTransitionRow(); // Start with one empty row
+    this.addTransitionRow(); // Iniciar con una fila vacia
   }
 
-  // ---- Event Binding ----
+  // ---- Enlace de Eventos ----
   bindEvents() {
     DOM.btnInit.addEventListener('click', () => this.initMachine());
     DOM.btnStep.addEventListener('click', () => this.executeStep());
     DOM.btnAuto.addEventListener('click', () => this.toggleAutoExecution());
     DOM.btnReset.addEventListener('click', () => this.resetMachine());
     DOM.btnAddTransition.addEventListener('click', () => this.addTransitionRow());
-    DOM.btnLoadExample.addEventListener('click', () => this.loadExample());
 
-    // Keyboard shortcuts
+    // Boton de ejemplos: abrir/cerrar menu desplegable
+    DOM.btnLoadExample.addEventListener('click', (e) => {
+      e.stopPropagation();
+      DOM.exampleDropdown.classList.toggle('open');
+    });
+
+    // Opciones del menu de ejemplos
+    DOM.exampleMenu.addEventListener('click', (e) => {
+      const option = e.target.closest('.example-option');
+      if (!option) return;
+      const exampleId = option.dataset.example;
+      this.loadExample(parseInt(exampleId));
+      DOM.exampleDropdown.classList.remove('open');
+    });
+
+    // Cerrar menu al hacer clic fuera
+    document.addEventListener('click', () => {
+      DOM.exampleDropdown.classList.remove('open');
+    });
+
+    // Atajos de teclado
     document.addEventListener('keydown', (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
       if (e.key === ' ' && !DOM.btnStep.disabled) {
@@ -259,7 +282,7 @@ class UIController {
     });
   }
 
-  // ---- Transition Table Management ----
+  // ---- Gestion de la Tabla de Transiciones ----
   addTransitionRow(data = {}) {
     this.transitionRowCount++;
     const row = document.createElement('tr');
@@ -280,7 +303,7 @@ class UIController {
       <td><button type="button" class="btn-remove-row" title="Eliminar">&times;</button></td>
     `;
 
-    // Remove row handler
+    // Manejador para eliminar fila
     row.querySelector('.btn-remove-row').addEventListener('click', () => {
       if (DOM.transitionsBody.children.length > 1) {
         row.remove();
@@ -289,7 +312,7 @@ class UIController {
 
     DOM.transitionsBody.appendChild(row);
 
-    // Focus the first input of the new row
+    // Enfocar el primer input de la nueva fila
     if (!data.state) {
       row.querySelector('.tr-state').focus();
     }
@@ -314,7 +337,7 @@ class UIController {
     return transitions;
   }
 
-  // ---- Validation Helpers ----
+  // ---- Ayudantes de Validacion ----
   clearAllValidationErrors() {
     document.querySelectorAll('.input-error').forEach(el => el.classList.remove('input-error'));
     document.querySelectorAll('.field-error-msg').forEach(el => el.remove());
@@ -323,7 +346,7 @@ class UIController {
 
   showFieldError(inputElement, message) {
     inputElement.classList.add('input-error');
-    // Remove existing error msg for this field
+    // Eliminar mensaje de error existente para este campo
     const existingMsg = inputElement.parentElement.querySelector('.field-error-msg');
     if (existingMsg) existingMsg.remove();
 
@@ -332,7 +355,7 @@ class UIController {
     errorMsg.textContent = message;
     inputElement.parentElement.appendChild(errorMsg);
 
-    // Remove error on next input
+    // Eliminar error al siguiente cambio de input
     const handler = () => {
       inputElement.classList.remove('input-error');
       const msg = inputElement.parentElement.querySelector('.field-error-msg');
@@ -343,31 +366,31 @@ class UIController {
   }
 
   /**
-   * Validates whether a string is a valid state name.
-   * Accepts formats like: q0, q1, qf, q_accept, s0, etc.
-   * Must start with a letter and contain only letters, digits, and underscores.
+   * Valida si una cadena es un nombre de estado valido.
+   * Acepta formatos como: q0, q1, qf, q_accept, s0, etc.
+   * Debe iniciar con letra y contener solo letras, digitos y guiones bajos.
    */
   isValidStateName(name) {
     return /^[a-zA-Z][a-zA-Z0-9_]*$/.test(name);
   }
 
   /**
-   * Validates whether a string is a valid symbol for the tape input.
-   * Letters (a-z, A-Z), digits (0-9) are allowed.
+   * Valida si una cadena es valida para la entrada de la cinta.
+   * Se permiten letras (a-z, A-Z) y digitos (0-9).
    */
   isValidInputString(str) {
     return /^[a-zA-Z0-9]+$/.test(str);
   }
 
   /**
-   * Validates whether a symbol is valid for a transition read/write field.
-   * Single character: a digit, letter, or recognized symbol (X, Y, B, etc.)
+   * Valida si un simbolo es valido para un campo de lectura/escritura.
+   * Un solo caracter: digito, letra o simbolo reconocido (X, Y, B, etc.)
    */
   isValidSymbol(sym) {
     return /^[a-zA-Z0-9]$/.test(sym);
   }
 
-  // ---- Machine Initialization ----
+  // ---- Inicializacion de la Maquina ----
   initMachine() {
     this.clearAllValidationErrors();
 
@@ -410,7 +433,7 @@ class UIController {
       this.showFieldError(DOM.inputString, 'Solo se permiten letras (a-z) y números (0-9).');
       hasErrors = true;
     } else if (tapeAlphabet.size > 0) {
-      // Validate each character in the input string against the defined alphabet
+      // Validar cada caracter de la cadena contra el alfabeto definido
       const invalidChars = [];
       for (const ch of inputString) {
         if (!tapeAlphabet.has(ch)) {
@@ -476,7 +499,7 @@ class UIController {
       const writeSymbol = writeInput.value.trim();
       const direction = dirSelect.value;
 
-      // Skip completely empty rows
+      // Saltar filas completamente vacias
       if (!state && !readSymbol && !nextState && !writeSymbol) {
         return;
       }
@@ -484,7 +507,7 @@ class UIController {
 
       let rowHasError = false;
 
-      // Validate each field in the row
+      // Validar cada campo de la fila
       if (!state) {
         this.showFieldError(stateInput, 'Requerido');
         rowHasError = true;
@@ -558,30 +581,30 @@ class UIController {
       return;
     }
 
-    // Initialize machine
+    // Inicializar maquina
     this.machine.init(inputString, initialState, finalStatesStr, transitions);
 
-    // Update UI
+    // Actualizar interfaz
     this.updateTape();
     this.updateStatus();
     this.updateFormalDefinition();
     this.clearLog();
     this.addLogEntry('info', `Máquina inicializada. Cadena: "${inputString}"`);
 
-    // Enable buttons
+    // Habilitar botones
     DOM.btnStep.disabled = false;
     DOM.btnAuto.disabled = false;
     DOM.btnReset.disabled = false;
     DOM.btnInit.disabled = true;
 
-    // Show head indicator
+    // Mostrar indicador del cabezal
     DOM.headIndicator.classList.add('visible');
 
     this.setMachineStatusBadge('running', 'Ejecutando');
     this.showToast('Máquina inicializada correctamente', 'success');
   }
 
-  // ---- Step Execution ----
+  // ---- Ejecucion por Paso ----
   executeStep() {
     if (this.machine.isFinished) return;
 
@@ -602,10 +625,10 @@ class UIController {
     this.updateStatus();
   }
 
-  // ---- Auto Execution ----
+  // ---- Ejecucion Automatica ----
   toggleAutoExecution() {
     if (this.autoInterval) {
-      // Stop
+      // Detener
       clearInterval(this.autoInterval);
       this.autoInterval = null;
       DOM.btnAuto.innerHTML = `
@@ -615,8 +638,8 @@ class UIController {
       DOM.btnStep.disabled = false;
       this.showToast('Ejecución automática detenida', 'info');
     } else {
-      // Start
-      const speed = 2100 - parseInt(DOM.speedSlider.value); // Invert: high slider = fast = low interval
+      // Iniciar
+      const speed = 2100 - parseInt(DOM.speedSlider.value); // Invertir: slider alto = rapido = intervalo bajo
       this.autoInterval = setInterval(() => {
         if (this.machine.isFinished) {
           clearInterval(this.autoInterval);
@@ -638,7 +661,7 @@ class UIController {
     }
   }
 
-  // ---- Machine Finished ----
+  // ---- Maquina Finalizada ----
   onMachineFinished(type) {
     if (this.autoInterval) {
       clearInterval(this.autoInterval);
@@ -661,7 +684,7 @@ class UIController {
     }
   }
 
-  // ---- Reset ----
+  // ---- Reiniciar ----
   resetMachine() {
     if (this.autoInterval) {
       clearInterval(this.autoInterval);
@@ -670,7 +693,7 @@ class UIController {
 
     this.machine = new TuringMachine();
 
-    // Reset buttons
+    // Reiniciar botones
     DOM.btnInit.disabled = false;
     DOM.btnStep.disabled = true;
     DOM.btnAuto.disabled = true;
@@ -680,35 +703,35 @@ class UIController {
       Ejecutar Automáticamente
     `;
 
-    // Reset displays
+    // Reiniciar indicadores
     DOM.currentState.textContent = '—';
     DOM.currentSymbol.textContent = '—';
     DOM.stepCount.textContent = '0';
     this.setMachineStatusBadge('stopped', 'Detenida');
 
-    // Remove card highlights
+    // Quitar resaltado de tarjetas
     document.querySelectorAll('.status-card').forEach(c => c.classList.remove('highlight'));
 
-    // Reset tape
+    // Reiniciar cinta
     DOM.tapeContainer.innerHTML = `
       <div class="tape-placeholder">
         <span>Configura la máquina e inicia para ver la cinta</span>
       </div>
     `;
 
-    // Reset log
+    // Reiniciar registro
     this.clearLog();
 
-    // Reset definition
+    // Reiniciar definicion
     DOM.definitionContent.innerHTML = '<p class="definition-placeholder">Inicia la máquina para ver la definición formal</p>';
 
-    // Hide head indicator
+    // Ocultar indicador del cabezal
     DOM.headIndicator.classList.remove('visible');
 
     this.showToast('Máquina reiniciada', 'info');
   }
 
-  // ---- Tape Rendering ----
+  // ---- Renderizado de la Cinta ----
   updateTape() {
     const { cells, headPosition } = this.machine.getTapeDisplay();
     DOM.tapeContainer.innerHTML = '';
@@ -722,7 +745,7 @@ class UIController {
         cell.classList.add('active');
       }
 
-      // Index label
+      // Etiqueta de indice
       const indexLabel = document.createElement('span');
       indexLabel.className = 'cell-index';
       indexLabel.textContent = index;
@@ -731,7 +754,7 @@ class UIController {
       DOM.tapeContainer.appendChild(cell);
     });
 
-    // Scroll to active cell
+    // Desplazar hacia la celda activa
     requestAnimationFrame(() => {
       const activeCell = DOM.tapeContainer.querySelector('.tape-cell.active');
       if (activeCell) {
@@ -741,14 +764,14 @@ class UIController {
           inline: 'center',
         });
 
-        // Trigger pulse animation
+        // Activar animacion de pulso
         activeCell.classList.add('written');
         setTimeout(() => activeCell.classList.remove('written'), 400);
       }
     });
   }
 
-  // ---- Status Update ----
+  // ---- Actualizacion de Estado ----
   updateStatus() {
     const m = this.machine;
     const readSymbol = m.tape[m.headPosition] || m.blankSymbol;
@@ -757,27 +780,27 @@ class UIController {
     DOM.currentSymbol.textContent = readSymbol;
     DOM.stepCount.textContent = m.steps;
 
-    // Highlight cards briefly
+    // Resaltar tarjetas brevemente
     [DOM.cardState, DOM.cardSymbol, DOM.cardSteps].forEach(card => {
       card.classList.add('highlight');
       setTimeout(() => card.classList.remove('highlight'), 600);
     });
   }
 
-  // ---- Status Badge ----
+  // ---- Insignia de Estado ----
   setMachineStatusBadge(type, text) {
     const badge = DOM.machineStatus;
     badge.textContent = text;
     badge.className = 'status-value status-badge ' + type;
   }
 
-  // ---- Log ----
+  // ---- Registro ----
   clearLog() {
     DOM.logContainer.innerHTML = '';
   }
 
   addLogEntry(type, data) {
-    // Remove placeholder if present
+    // Eliminar placeholder si existe
     const placeholder = DOM.logContainer.querySelector('.log-placeholder');
     if (placeholder) placeholder.remove();
 
@@ -803,11 +826,11 @@ class UIController {
 
     DOM.logContainer.appendChild(entry);
 
-    // Auto-scroll
+    // Desplazamiento automatico
     DOM.logContainer.scrollTop = DOM.logContainer.scrollHeight;
   }
 
-  // ---- Formal Definition ----
+  // ---- Definicion Formal ----
   updateFormalDefinition() {
     const def = this.machine.getFormalDefinition();
 
@@ -821,32 +844,59 @@ class UIController {
     `;
   }
 
-  // ---- Load Example ----
-  loadExample() {
-    // Clear existing transitions
+  // ---- Cargar Ejemplo ----
+  loadExample(id) {
+    // Limpiar transiciones existentes
     DOM.transitionsBody.innerHTML = '';
     this.transitionRowCount = 0;
 
-    // Example: Replace all 1s with X
-    DOM.inputString.value = '1101101';
-    DOM.tapeAlphabet.value = '0, 1, X, B';
-    DOM.initialState.value = 'q0';
-    DOM.finalStates.value = 'qf';
+    if (id === 1) {
+      // Ejemplo 1: Reemplazar todos los 1 por X
+      DOM.inputString.value = '1101101';
+      DOM.tapeAlphabet.value = '0, 1, X, B';
+      DOM.initialState.value = 'q0';
+      DOM.finalStates.value = 'qf';
+      const transitions = [
+        { state: 'q0', readSymbol: '1', nextState: 'q0', writeSymbol: 'X', direction: 'R' },
+        { state: 'q0', readSymbol: '0', nextState: 'q0', writeSymbol: '0', direction: 'R' },
+        { state: 'q0', readSymbol: 'B', nextState: 'qf', writeSymbol: 'B', direction: 'L' },
+      ];
+      transitions.forEach(t => this.addTransitionRow(t));
+      this.showToast('Ejemplo cargado: Reemplazar 1 por X', 'success');
 
-    const exampleTransitions = [
-      { state: 'q0', readSymbol: '1', nextState: 'q0', writeSymbol: 'X', direction: 'R' },
-      { state: 'q0', readSymbol: '0', nextState: 'q0', writeSymbol: '0', direction: 'R' },
-      { state: 'q0', readSymbol: 'B', nextState: 'qf', writeSymbol: 'B', direction: 'L' },
-    ];
+    } else if (id === 2) {
+      // Ejemplo 2: Invertir bits (0 a 1, 1 a 0)
+      DOM.inputString.value = '110100';
+      DOM.tapeAlphabet.value = '0, 1, B';
+      DOM.initialState.value = 'q0';
+      DOM.finalStates.value = 'qf';
+      const transitions = [
+        { state: 'q0', readSymbol: '0', nextState: 'q0', writeSymbol: '1', direction: 'R' },
+        { state: 'q0', readSymbol: '1', nextState: 'q0', writeSymbol: '0', direction: 'R' },
+        { state: 'q0', readSymbol: 'B', nextState: 'qf', writeSymbol: 'B', direction: 'L' },
+      ];
+      transitions.forEach(t => this.addTransitionRow(t));
+      this.showToast('Ejemplo cargado: Invertir bits', 'success');
 
-    exampleTransitions.forEach(t => this.addTransitionRow(t));
-
-    this.showToast('Ejemplo cargado: Reemplazar 1→X', 'success');
+    } else if (id === 3) {
+      // Ejemplo 3: Agregar 1 al final de la cadena
+      DOM.inputString.value = '1010';
+      DOM.tapeAlphabet.value = '0, 1, B';
+      DOM.initialState.value = 'q0';
+      DOM.finalStates.value = 'qf';
+      const transitions = [
+        { state: 'q0', readSymbol: '0', nextState: 'q0', writeSymbol: '0', direction: 'R' },
+        { state: 'q0', readSymbol: '1', nextState: 'q0', writeSymbol: '1', direction: 'R' },
+        { state: 'q0', readSymbol: 'B', nextState: 'qf', writeSymbol: '1', direction: 'S' },
+      ];
+      transitions.forEach(t => this.addTransitionRow(t));
+      this.showToast('Ejemplo cargado: Agregar 1 al final', 'success');
+    }
   }
 
-  // ---- Toast Notifications ----
+  // ---- Notificaciones Toast ----
   showToast(message, type = 'info') {
-    // Remove existing toasts
+    // Eliminar toasts existentes
     document.querySelectorAll('.toast').forEach(t => t.remove());
 
     const icons = {
@@ -870,7 +920,7 @@ class UIController {
 }
 
 
-// ============ Initialize ============
+// ============ Inicializar ============
 document.addEventListener('DOMContentLoaded', () => {
   const app = new UIController();
 });
