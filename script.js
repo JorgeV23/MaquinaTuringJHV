@@ -593,7 +593,7 @@ class UIController {
 
     // Habilitar botones
     DOM.btnStep.disabled = false;
-    DOM.btnAuto.disabled = false;
+    DOM.btnAuto.disabled = true;
     DOM.btnReset.disabled = false;
     DOM.btnInit.disabled = true;
 
