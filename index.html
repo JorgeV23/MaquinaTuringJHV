@@ -5,8 +5,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description"
-    content="Simulador interactivo de Máquina de Turing con visualización paso a paso de la cinta, cabezal y transiciones.">
-  <title>Simulador Máquina de Turing (MT)</title>
+    content="Simulador interactivo de Maquina de Turing con visualizacion paso a paso de la cinta, cabezal y transiciones.">
+  <title>Simulador Maquina de Turing (MT)</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
@@ -18,7 +18,7 @@
 <body>
 
   <div class="app-container">
-    <!-- Header -->
+    <!-- Encabezado -->
     <header class="header">
       <div class="header-icon">
         <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -30,23 +30,23 @@
           <line x1="18" y1="6" x2="18" y2="18" />
         </svg>
       </div>
-      <h1 id="main-title">Simulador Máquina de Turing (MT)</h1>
-      <p class="subtitle">Visualiza el funcionamiento de una Máquina de Turing paso a paso</p>
+      <h1 id="main-title">Simulador Maquina de Turing (MT)</h1>
+      <p class="subtitle">Visualiza el funcionamiento de una Maquina de Turing paso a paso</p>
     </header>
 
-    <!-- Main Content -->
+    <!-- Contenido Principal -->
     <main class="main-content">
 
-      <!-- Left Panel: Configuration -->
-      <section class="panel config-panel" aria-label="Configuración de la Máquina de Turing">
+      <!-- Panel Izquierdo: Configuracion -->
+      <section class="panel config-panel" aria-label="Configuracion de la Maquina de Turing">
         <div class="panel-header">
           <h2>
-            <span class="panel-icon">⚙️</span>
-            Configuración
+            <span class="panel-icon">&#9881;</span>
+            Configuracion
           </h2>
         </div>
 
-        <!-- Input String -->
+        <!-- Cadena Inicial -->
         <div class="form-group">
           <label for="input-string">Cadena Inicial</label>
           <div class="input-wrapper">
@@ -55,19 +55,19 @@
           </div>
         </div>
 
-        <!-- Tape Alphabet -->
+        <!-- Alfabeto de Cinta -->
         <div class="form-group">
-          <label for="tape-alphabet">Alfabeto de Cinta (Γ)</label>
+          <label for="tape-alphabet">Alfabeto de Cinta (Gamma)</label>
           <div class="input-wrapper">
             <input type="text" id="tape-alphabet" placeholder="Ej: 0,1,X,B" autocomplete="off" spellcheck="false">
-            <span class="input-hint">Separar con coma. B se incluye automáticamente</span>
+            <span class="input-hint">Separar con coma. B se incluye automaticamente</span>
           </div>
         </div>
 
-        <!-- States Configuration -->
+        <!-- Configuracion de Estados -->
         <div class="form-row">
           <div class="form-group">
-            <label for="initial-state">Estado Inicial (q₀)</label>
+            <label for="initial-state">Estado Inicial (q0)</label>
             <input type="text" id="initial-state" placeholder="q0" autocomplete="off">
           </div>
           <div class="form-group">
@@ -76,37 +76,54 @@
           </div>
         </div>
 
-        <!-- Transitions Table -->
+        <!-- Tabla de Transiciones -->
         <div class="form-group">
-          <label>Transiciones δ(q, σ) → (q', σ', D)</label>
+          <label>Transiciones delta(q, sigma) -> (q', sigma', D)</label>
           <div class="transitions-container">
             <table class="transitions-table" id="transitions-table">
               <thead>
                 <tr>
                   <th>Estado</th>
                   <th>Lee</th>
-                  <th>→ Estado</th>
+                  <th>-> Estado</th>
                   <th>Escribe</th>
                   <th>Dir</th>
                   <th></th>
                 </tr>
               </thead>
               <tbody id="transitions-body">
-                <!-- Rows added dynamically -->
+                <!-- Filas agregadas dinamicamente -->
               </tbody>
             </table>
           </div>
           <div class="transition-actions">
             <button type="button" class="btn btn-secondary btn-sm" id="btn-add-transition">
-              <span>+</span> Agregar Transición
+              <span>+</span> Agregar Transicion
             </button>
-            <button type="button" class="btn btn-ghost btn-sm" id="btn-load-example">
-              <span>📋</span> Cargar Ejemplo
-            </button>
+            <!-- Boton de ejemplos con menu desplegable -->
+            <div class="example-dropdown" id="example-dropdown">
+              <button type="button" class="btn btn-example btn-sm" id="btn-load-example">
+                Cargar Ejemplo &#9662;
+              </button>
+              <div class="example-menu" id="example-menu">
+                <button type="button" class="example-option" data-example="1">
+                  <span class="example-title">Reemplazar 1 por X</span>
+                  <span class="example-desc">Recorre la cinta y sustituye cada 1 por X</span>
+                </button>
+                <button type="button" class="example-option" data-example="2">
+                  <span class="example-title">Invertir bits (0 a 1, 1 a 0)</span>
+                  <span class="example-desc">Complemento binario de la cadena</span>
+                </button>
+                <button type="button" class="example-option" data-example="3">
+                  <span class="example-title">Agregar 1 al final de la cadena</span>
+                  <span class="example-desc">Busca el final (B) y escribe un 1</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
-        <!-- Control Buttons -->
+        <!-- Botones de Control -->
         <div class="controls">
           <button type="button" class="btn btn-primary" id="btn-init">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
@@ -129,7 +146,7 @@
               <polygon points="5 3 19 12 5 21 5 3" />
               <line x1="19" y1="5" x2="19" y2="19" />
             </svg>
-            Ejecutar Automáticamente
+            Ejecutar Automaticamente
           </button>
           <button type="button" class="btn btn-danger" id="btn-reset" disabled>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
@@ -141,35 +158,35 @@
           </button>
         </div>
 
-        <!-- Speed Control -->
+        <!-- Control de Velocidad -->
         <div class="form-group speed-control">
-          <label for="speed-slider">Velocidad de ejecución</label>
+          <label for="speed-slider">Velocidad de ejecucion</label>
           <div class="speed-wrapper">
             <span class="speed-label">Lenta</span>
             <input type="range" id="speed-slider" min="100" max="2000" value="500" step="100">
-            <span class="speed-label">Rápida</span>
+            <span class="speed-label">Rapida</span>
           </div>
         </div>
       </section>
 
-      <!-- Right Panel: Visualization -->
-      <section class="panel viz-panel" aria-label="Visualización de la Máquina de Turing">
+      <!-- Panel Derecho: Visualizacion -->
+      <section class="panel viz-panel" aria-label="Visualizacion de la Maquina de Turing">
         <div class="panel-header">
           <h2>
-            <span class="panel-icon">👁️</span>
-            Visualización
+            <span class="panel-icon">&#9673;</span>
+            Visualizacion
           </h2>
         </div>
 
-        <!-- Status Cards -->
+        <!-- Tarjetas de Estado -->
         <div class="status-cards">
           <div class="status-card" id="card-state">
             <span class="status-label">Estado Actual</span>
-            <span class="status-value" id="current-state">—</span>
+            <span class="status-value" id="current-state">&mdash;</span>
           </div>
           <div class="status-card" id="card-symbol">
-            <span class="status-label">Símbolo Leído</span>
-            <span class="status-value" id="current-symbol">—</span>
+            <span class="status-label">Simbolo Leido</span>
+            <span class="status-value" id="current-symbol">&mdash;</span>
           </div>
           <div class="status-card" id="card-steps">
             <span class="status-label">Pasos</span>
@@ -181,7 +198,7 @@
           </div>
         </div>
 
-        <!-- Tape Visualization -->
+        <!-- Visualizacion de la Cinta -->
         <div class="tape-section">
           <h3 class="section-title">Cinta</h3>
           <div class="tape-viewport">
@@ -193,36 +210,36 @@
             </div>
             <div class="tape-container" id="tape-container">
               <div class="tape-placeholder">
-                <span>Configura la máquina e inicia para ver la cinta</span>
+                <span>Configura la maquina e inicia para ver la cinta</span>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Transition Log -->
+        <!-- Registro de Transiciones -->
         <div class="log-section">
           <h3 class="section-title">Registro de Transiciones</h3>
           <div class="log-container" id="log-container">
             <div class="log-placeholder">
-              Las transiciones aparecerán aquí...
+              Las transiciones apareceran aqui...
             </div>
           </div>
         </div>
 
-        <!-- Formal Definition -->
+        <!-- Definicion Formal -->
         <div class="definition-section">
-          <h3 class="section-title">Definición Formal</h3>
+          <h3 class="section-title">Definicion Formal</h3>
           <div class="definition-content" id="definition-content">
-            <p class="definition-placeholder">Inicia la máquina para ver la definición formal</p>
+            <p class="definition-placeholder">Inicia la maquina para ver la definicion formal</p>
           </div>
         </div>
       </section>
 
     </main>
 
-    <!-- Footer -->
+    <!-- Pie de Pagina -->
     <footer class="footer">
-      <p>Simulador de Máquina de Turing — Teoría de la Computación</p>
+      <p>Simulador de Maquina de Turing - Teoria de la Computacion</p>
     </footer>
   </div>
 
