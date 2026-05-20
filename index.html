@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Press+Start+2P&display=swap"
     rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -21,7 +21,12 @@
     <!-- Encabezado -->
     <header class="header">
 
-      <h1 id="main-title">Simulador Maquina de Turing (MT)</h1>
+      <div class="title-wrapper">
+        <h1 id="main-title" class="retro-title">Máquina de Turing</h1>
+        <span class="sparkle s1">✦</span>
+        <span class="sparkle s2">✦</span>
+        <span class="sparkle s3">✦</span>
+      </div>
       <p class="subtitle">Visualiza el funcionamiento de una Maquina de Turing paso a paso</p>
     </header>
 
@@ -109,6 +114,14 @@
                   <span class="example-title">Agregar 1 al final de la cadena</span>
                   <span class="example-desc">Busca el final (B) y escribe un 1</span>
                 </button>
+                <button type="button" class="example-option" data-example="4">
+                  <span class="example-title">Verificar palíndromo binario</span>
+                  <span class="example-desc">Compara extremos de la cadena (X=0 revisado, Y=1 revisado)</span>
+                </button>
+                <button type="button" class="example-option" data-example="5">
+                  <span class="example-title">Igual cantidad de 0 y 1</span>
+                  <span class="example-desc">Empareja cada 0 con un 1, marca con X</span>
+                </button>
               </div>
             </div>
           </div>
@@ -193,16 +206,25 @@
         <div class="tape-section">
           <h3 class="section-title">Cinta</h3>
           <div class="tape-viewport">
-            <div class="head-indicator">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2l-5 10h10z" />
+            <!-- Head tracker: floats above the active cell -->
+            <div class="head-tracker" id="head-tracker">
+              <span class="head-tracker-label">Cabezal</span>
+              <svg class="head-tracker-arrow" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 16l-6-8h12z" />
               </svg>
-              <span>Cabezal</span>
             </div>
             <div class="tape-container" id="tape-container">
               <div class="tape-placeholder">
                 <span>Configura la maquina e inicia para ver la cinta</span>
               </div>
+            </div>
+            <!-- Direction arrow: floats below the active cell -->
+            <div class="direction-tracker" id="direction-tracker">
+              <svg class="direction-arrow" id="direction-arrow" width="22" height="22" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="5" y1="12" x2="19" y2="12" />
+                <polyline points="12 5 19 12 12 19" />
+              </svg>
             </div>
           </div>
         </div>
@@ -230,7 +252,7 @@
 
     <!-- Pie de Pagina -->
     <footer class="footer">
-      <p>Simulador de Maquina de Turing - Teoria de la Computacion</p>
+      <p>Simulador de Maquina de Turing - Gramática y Lenguajes Formales</p>
     </footer>
   </div>
 

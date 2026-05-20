@@ -36,8 +36,10 @@ const DOM = {
   // Velocidad
   speedSlider: document.getElementById('speed-slider'),
 
-  // Indicador del cabezal
-  headIndicator: document.querySelector('.head-indicator'),
+  // Head & direction trackers
+  headTracker: document.getElementById('head-tracker'),
+  directionTracker: document.getElementById('direction-tracker'),
+  directionArrow: document.getElementById('direction-arrow'),
 
   // Menu de ejemplos
   exampleDropdown: document.getElementById('example-dropdown'),
@@ -178,13 +180,13 @@ class TuringMachine {
     this.steps++;
 
     // Mover cabezal
-    if (transition.direction === 'R') {
+    if (transition.direction === 'D') {
       this.headPosition++;
       // Extender cinta a la derecha si es necesario
       if (this.headPosition >= this.tape.length) {
         this.tape.push(this.blankSymbol);
       }
-    } else if (transition.direction === 'L') {
+    } else if (transition.direction === 'I') {
       this.headPosition--;
       // Extender cinta a la izquierda si es necesario
       if (this.headPosition < 0) {
@@ -192,7 +194,7 @@ class TuringMachine {
         this.headPosition = 0;
       }
     }
-    // 'S' (Neutro) - el cabezal no se mueve
+    // 'S' (Sin movimiento) - el cabezal no se mueve
 
     return {
       type: 'step',
@@ -239,6 +241,7 @@ class UIController {
     this.machine = new TuringMachine();
     this.autoInterval = null;
     this.transitionRowCount = 0;
+    this.lastDirection = null; // Track last head movement direction
 
     this.bindEvents();
     this.addTransitionRow(); // Iniciar con una fila vacia
@@ -295,8 +298,8 @@ class UIController {
       <td><input type="text" class="tr-write" value="${data.writeSymbol || ''}" placeholder="X" autocomplete="off"></td>
       <td>
         <select class="tr-dir">
-          <option value="R" ${!data.direction || data.direction === 'R' ? 'selected' : ''}>R</option>
-          <option value="L" ${data.direction === 'L' ? 'selected' : ''}>L</option>
+          <option value="D" ${!data.direction || data.direction === 'D' ? 'selected' : ''}>D</option>
+          <option value="I" ${data.direction === 'I' ? 'selected' : ''}>I</option>
           <option value="S" ${data.direction === 'S' ? 'selected' : ''}>S</option>
         </select>
       </td>
@@ -597,8 +600,9 @@ class UIController {
     DOM.btnReset.disabled = false;
     DOM.btnInit.disabled = true;
 
-    // Mostrar indicador del cabezal
-    DOM.headIndicator.classList.add('visible');
+    // Mostrar indicadores del cabezal
+    this.lastDirection = null;
+    DOM.headTracker.classList.add('visible');
 
     this.setMachineStatusBadge('running', 'Ejecutando');
     this.showToast('Máquina inicializada correctamente', 'success');
@@ -612,6 +616,7 @@ class UIController {
     if (!result) return;
 
     if (result.type === 'step') {
+      this.lastDirection = result.direction; // 'R', 'L', or 'S'
       this.addLogEntry('step', result);
     } else if (result.type === 'accepted') {
       this.addLogEntry('accepted', result.message);
@@ -725,8 +730,10 @@ class UIController {
     // Reiniciar definicion
     DOM.definitionContent.innerHTML = '<p class="definition-placeholder">Inicia la máquina para ver la definición formal</p>';
 
-    // Ocultar indicador del cabezal
-    DOM.headIndicator.classList.remove('visible');
+    // Ocultar indicadores del cabezal
+    DOM.headTracker.classList.remove('visible');
+    DOM.directionTracker.classList.remove('visible');
+    this.lastDirection = null;
 
     this.showToast('Máquina reiniciada', 'info');
   }
@@ -754,7 +761,7 @@ class UIController {
       DOM.tapeContainer.appendChild(cell);
     });
 
-    // Desplazar hacia la celda activa
+    // Desplazar hacia la celda activa y position trackers
     requestAnimationFrame(() => {
       const activeCell = DOM.tapeContainer.querySelector('.tape-cell.active');
       if (activeCell) {
@@ -767,8 +774,51 @@ class UIController {
         // Activar animacion de pulso
         activeCell.classList.add('written');
         setTimeout(() => activeCell.classList.remove('written'), 400);
+
+        // Position head tracker above active cell
+        this.positionTrackers(activeCell);
       }
     });
+  }
+
+  /**
+   * Posicionar los indicadores (cabezal y dirección) sobre la celda activa
+   */
+  positionTrackers(activeCell) {
+    const viewport = activeCell.closest('.tape-viewport');
+    if (!viewport) return;
+
+    const viewportRect = viewport.getBoundingClientRect();
+    const cellRect = activeCell.getBoundingClientRect();
+
+    // Center of the active cell relative to the viewport
+    const cellCenterX = cellRect.left + cellRect.width / 2 - viewportRect.left;
+
+    // Position the head tracker (above)
+    const headTracker = DOM.headTracker;
+    const headWidth = headTracker.offsetWidth;
+    headTracker.style.left = (cellCenterX - headWidth / 2) + 'px';
+
+    // Position the direction tracker (below)
+    const dirTracker = DOM.directionTracker;
+    const dirWidth = dirTracker.offsetWidth;
+    dirTracker.style.left = (cellCenterX - dirWidth / 2) + 'px';
+
+    // Update direction arrow
+    const arrow = DOM.directionArrow;
+    arrow.classList.remove('dir-left', 'dir-right', 'dir-stay');
+
+    if (this.lastDirection === 'I') {
+      arrow.classList.add('dir-left');
+      dirTracker.classList.add('visible');
+    } else if (this.lastDirection === 'D') {
+      arrow.classList.add('dir-right');
+      dirTracker.classList.add('visible');
+    } else if (this.lastDirection === 'S') {
+      // Show a "stay" indicator — use a dot/pause icon approach
+      arrow.classList.add('dir-stay');
+      dirTracker.classList.add('visible');
+    }
   }
 
   // ---- Actualizacion de Estado ----
@@ -857,9 +907,9 @@ class UIController {
       DOM.initialState.value = 'q0';
       DOM.finalStates.value = 'qf';
       const transitions = [
-        { state: 'q0', readSymbol: '1', nextState: 'q0', writeSymbol: 'X', direction: 'R' },
-        { state: 'q0', readSymbol: '0', nextState: 'q0', writeSymbol: '0', direction: 'R' },
-        { state: 'q0', readSymbol: 'B', nextState: 'qf', writeSymbol: 'B', direction: 'L' },
+        { state: 'q0', readSymbol: '1', nextState: 'q0', writeSymbol: 'X', direction: 'D' },
+        { state: 'q0', readSymbol: '0', nextState: 'q0', writeSymbol: '0', direction: 'D' },
+        { state: 'q0', readSymbol: 'B', nextState: 'qf', writeSymbol: 'B', direction: 'I' },
       ];
       transitions.forEach(t => this.addTransitionRow(t));
       this.showToast('Ejemplo cargado: Reemplazar 1 por X', 'success');
@@ -871,9 +921,9 @@ class UIController {
       DOM.initialState.value = 'q0';
       DOM.finalStates.value = 'qf';
       const transitions = [
-        { state: 'q0', readSymbol: '0', nextState: 'q0', writeSymbol: '1', direction: 'R' },
-        { state: 'q0', readSymbol: '1', nextState: 'q0', writeSymbol: '0', direction: 'R' },
-        { state: 'q0', readSymbol: 'B', nextState: 'qf', writeSymbol: 'B', direction: 'L' },
+        { state: 'q0', readSymbol: '0', nextState: 'q0', writeSymbol: '1', direction: 'D' },
+        { state: 'q0', readSymbol: '1', nextState: 'q0', writeSymbol: '0', direction: 'D' },
+        { state: 'q0', readSymbol: 'B', nextState: 'qf', writeSymbol: 'B', direction: 'I' },
       ];
       transitions.forEach(t => this.addTransitionRow(t));
       this.showToast('Ejemplo cargado: Invertir bits', 'success');
@@ -885,12 +935,141 @@ class UIController {
       DOM.initialState.value = 'q0';
       DOM.finalStates.value = 'qf';
       const transitions = [
-        { state: 'q0', readSymbol: '0', nextState: 'q0', writeSymbol: '0', direction: 'R' },
-        { state: 'q0', readSymbol: '1', nextState: 'q0', writeSymbol: '1', direction: 'R' },
+        { state: 'q0', readSymbol: '0', nextState: 'q0', writeSymbol: '0', direction: 'D' },
+        { state: 'q0', readSymbol: '1', nextState: 'q0', writeSymbol: '1', direction: 'D' },
         { state: 'q0', readSymbol: 'B', nextState: 'qf', writeSymbol: '1', direction: 'S' },
       ];
       transitions.forEach(t => this.addTransitionRow(t));
       this.showToast('Ejemplo cargado: Agregar 1 al final', 'success');
+
+    } else if (id === 4) {
+      // ============================================================
+      // Ejemplo 4: Verificar palíndromo binario
+      // ============================================================
+      // Estrategia:
+      //   q0 — Leer extremo izquierdo: marcar 0→X o 1→Y, saltar ya-marcados
+      //   q1 — Vio 0, ir a la derecha buscando extremo derecho
+      //   q2 — Vio 1, ir a la derecha buscando extremo derecho
+      //   q3 — Vio 0, retroceder desde B buscando el último sin marcar (debe ser 0)
+      //   q4 — Vio 1, retroceder desde B buscando el último sin marcar (debe ser 1)
+      //   q5 — Coincidencia OK, regresar al extremo izquierdo
+      //   qf — Aceptar (es palíndromo)
+      //
+      // Rechazo: si q3 encuentra 1, o q4 encuentra 0 → sin transición → rechaza
+      // Caso impar: si q3/q4 llegan a B sin encontrar símbolo → elemento medio, aceptar
+      //
+      // Alfabeto de cinta: 0, 1, X (0 revisado), Y (1 revisado), B (blanco)
+      // Cadena de prueba: "1001" (palíndromo → acepta)
+      // Pruebas válidas:   0110, 1001, 10101
+      // Pruebas inválidas: 1100, 1010
+      // ============================================================
+      DOM.inputString.value = '1001';
+      DOM.tapeAlphabet.value = '0, 1, X, Y, B';
+      DOM.initialState.value = 'q0';
+      DOM.finalStates.value = 'qf';
+      const transitions = [
+        // q0: Leer extremo izquierdo sin marcar
+        { state: 'q0', readSymbol: '0', nextState: 'q1', writeSymbol: 'X', direction: 'D' },
+        { state: 'q0', readSymbol: '1', nextState: 'q2', writeSymbol: 'Y', direction: 'D' },
+        { state: 'q0', readSymbol: 'X', nextState: 'q0', writeSymbol: 'X', direction: 'D' },
+        { state: 'q0', readSymbol: 'Y', nextState: 'q0', writeSymbol: 'Y', direction: 'D' },
+        { state: 'q0', readSymbol: 'B', nextState: 'qf', writeSymbol: 'B', direction: 'S' },
+
+        // q1: Vio 0 a la izquierda, avanzar hasta el final derecho
+        { state: 'q1', readSymbol: '0', nextState: 'q1', writeSymbol: '0', direction: 'D' },
+        { state: 'q1', readSymbol: '1', nextState: 'q1', writeSymbol: '1', direction: 'D' },
+        { state: 'q1', readSymbol: 'X', nextState: 'q1', writeSymbol: 'X', direction: 'D' },
+        { state: 'q1', readSymbol: 'Y', nextState: 'q1', writeSymbol: 'Y', direction: 'D' },
+        { state: 'q1', readSymbol: 'B', nextState: 'q3', writeSymbol: 'B', direction: 'I' },
+
+        // q2: Vio 1 a la izquierda, avanzar hasta el final derecho
+        { state: 'q2', readSymbol: '0', nextState: 'q2', writeSymbol: '0', direction: 'D' },
+        { state: 'q2', readSymbol: '1', nextState: 'q2', writeSymbol: '1', direction: 'D' },
+        { state: 'q2', readSymbol: 'X', nextState: 'q2', writeSymbol: 'X', direction: 'D' },
+        { state: 'q2', readSymbol: 'Y', nextState: 'q2', writeSymbol: 'Y', direction: 'D' },
+        { state: 'q2', readSymbol: 'B', nextState: 'q4', writeSymbol: 'B', direction: 'I' },
+
+        // q3: Vio 0, buscar último sin marcar (debe ser 0 para coincidir)
+        { state: 'q3', readSymbol: 'X', nextState: 'q3', writeSymbol: 'X', direction: 'I' },
+        { state: 'q3', readSymbol: 'Y', nextState: 'q3', writeSymbol: 'Y', direction: 'I' },
+        { state: 'q3', readSymbol: '0', nextState: 'q5', writeSymbol: 'X', direction: 'I' },
+        // q3 + 1 → sin transición → RECHAZO (no coincide)
+        { state: 'q3', readSymbol: 'B', nextState: 'qf', writeSymbol: 'B', direction: 'S' },
+
+        // q4: Vio 1, buscar último sin marcar (debe ser 1 para coincidir)
+        { state: 'q4', readSymbol: 'X', nextState: 'q4', writeSymbol: 'X', direction: 'I' },
+        { state: 'q4', readSymbol: 'Y', nextState: 'q4', writeSymbol: 'Y', direction: 'I' },
+        { state: 'q4', readSymbol: '1', nextState: 'q5', writeSymbol: 'Y', direction: 'I' },
+        // q4 + 0 → sin transición → RECHAZO (no coincide)
+        { state: 'q4', readSymbol: 'B', nextState: 'qf', writeSymbol: 'B', direction: 'S' },
+
+        // q5: Regresar al extremo izquierdo
+        { state: 'q5', readSymbol: '0', nextState: 'q5', writeSymbol: '0', direction: 'I' },
+        { state: 'q5', readSymbol: '1', nextState: 'q5', writeSymbol: '1', direction: 'I' },
+        { state: 'q5', readSymbol: 'X', nextState: 'q5', writeSymbol: 'X', direction: 'I' },
+        { state: 'q5', readSymbol: 'Y', nextState: 'q5', writeSymbol: 'Y', direction: 'I' },
+        { state: 'q5', readSymbol: 'B', nextState: 'q0', writeSymbol: 'B', direction: 'D' },
+      ];
+      transitions.forEach(t => this.addTransitionRow(t));
+      this.showToast('Ejemplo cargado: Verificar palíndromo', 'success');
+
+    } else if (id === 5) {
+      // ============================================================
+      // Ejemplo 5: Igual cantidad de 0 y 1
+      // ============================================================
+      // Estrategia:
+      //   q0 — Buscar primer símbolo sin marcar (0 o 1)
+      //        Si 0 → marcar X, ir a q1 (buscar un 1)
+      //        Si 1 → marcar X, ir a q2 (buscar un 0)
+      //        Si X → saltar
+      //        Si B → todos emparejados → aceptar
+      //   q1 — Vio 0, buscar un 1 sin marcar hacia la derecha
+      //        Si 1 → marcar X, ir a q3 (regresar)
+      //        Si 0/X → saltar
+      //        Si B → sin transición → RECHAZO (sobran 0s)
+      //   q2 — Vio 1, buscar un 0 sin marcar hacia la derecha
+      //        Si 0 → marcar X, ir a q3 (regresar)
+      //        Si 1/X → saltar
+      //        Si B → sin transición → RECHAZO (sobran 1s)
+      //   q3 — Regresar al inicio
+      //   qf — Aceptar
+      //
+      // Alfabeto de cinta: 0, 1, X (marcado), B (blanco)
+      // Cadena de prueba: "0011" (igual cantidad → acepta)
+      // Pruebas válidas:   01, 0011, 1010
+      // Pruebas inválidas: 1110, 0001
+      // ============================================================
+      DOM.inputString.value = '0011';
+      DOM.tapeAlphabet.value = '0, 1, X, B';
+      DOM.initialState.value = 'q0';
+      DOM.finalStates.value = 'qf';
+      const transitions = [
+        // q0: Buscar primer símbolo sin marcar
+        { state: 'q0', readSymbol: '0', nextState: 'q1', writeSymbol: 'X', direction: 'D' },
+        { state: 'q0', readSymbol: '1', nextState: 'q2', writeSymbol: 'X', direction: 'D' },
+        { state: 'q0', readSymbol: 'X', nextState: 'q0', writeSymbol: 'X', direction: 'D' },
+        { state: 'q0', readSymbol: 'B', nextState: 'qf', writeSymbol: 'B', direction: 'S' },
+
+        // q1: Vio 0, buscar un 1 para emparejar
+        { state: 'q1', readSymbol: '0', nextState: 'q1', writeSymbol: '0', direction: 'D' },
+        { state: 'q1', readSymbol: '1', nextState: 'q3', writeSymbol: 'X', direction: 'I' },
+        { state: 'q1', readSymbol: 'X', nextState: 'q1', writeSymbol: 'X', direction: 'D' },
+        // q1 + B → sin transición → RECHAZO (sobran 0s)
+
+        // q2: Vio 1, buscar un 0 para emparejar
+        { state: 'q2', readSymbol: '0', nextState: 'q3', writeSymbol: 'X', direction: 'I' },
+        { state: 'q2', readSymbol: '1', nextState: 'q2', writeSymbol: '1', direction: 'D' },
+        { state: 'q2', readSymbol: 'X', nextState: 'q2', writeSymbol: 'X', direction: 'D' },
+        // q2 + B → sin transición → RECHAZO (sobran 1s)
+
+        // q3: Regresar al inicio para buscar el siguiente par
+        { state: 'q3', readSymbol: '0', nextState: 'q3', writeSymbol: '0', direction: 'I' },
+        { state: 'q3', readSymbol: '1', nextState: 'q3', writeSymbol: '1', direction: 'I' },
+        { state: 'q3', readSymbol: 'X', nextState: 'q3', writeSymbol: 'X', direction: 'I' },
+        { state: 'q3', readSymbol: 'B', nextState: 'q0', writeSymbol: 'B', direction: 'D' },
+      ];
+      transitions.forEach(t => this.addTransitionRow(t));
+      this.showToast('Ejemplo cargado: Igual cantidad de 0 y 1', 'success');
     }
   }
 
