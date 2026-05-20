@@ -263,10 +263,43 @@ body::before {
 /* --- Panels --- */
 .panel {
   background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
+  border: 1px solid transparent;
   border-radius: var(--radius-xl);
   padding: 1.75rem;
-  animation: fadeInUp 0.5s ease-out;
+  position: relative;
+  z-index: 1;
+  animation: panelRetroGlow 6s linear infinite, fadeInUp 0.5s ease-out;
+}
+
+@keyframes panelRetroGlow {
+  0% {
+    border-color: rgba(255, 107, 157, 0.3);
+    box-shadow: 0 0 15px rgba(255, 107, 157, 0.2), inset 0 0 8px rgba(255, 107, 157, 0.1);
+  }
+  16% {
+    border-color: rgba(255, 167, 81, 0.3);
+    box-shadow: 0 0 15px rgba(255, 167, 81, 0.2), inset 0 0 8px rgba(255, 167, 81, 0.1);
+  }
+  33% {
+    border-color: rgba(255, 226, 89, 0.3);
+    box-shadow: 0 0 15px rgba(255, 226, 89, 0.2), inset 0 0 8px rgba(255, 226, 89, 0.1);
+  }
+  50% {
+    border-color: rgba(168, 224, 99, 0.3);
+    box-shadow: 0 0 15px rgba(168, 224, 99, 0.2), inset 0 0 8px rgba(168, 224, 99, 0.1);
+  }
+  66% {
+    border-color: rgba(105, 210, 231, 0.3);
+    box-shadow: 0 0 15px rgba(105, 210, 231, 0.2), inset 0 0 8px rgba(105, 210, 231, 0.1);
+  }
+  83% {
+    border-color: rgba(192, 132, 252, 0.3);
+    box-shadow: 0 0 15px rgba(192, 132, 252, 0.2), inset 0 0 8px rgba(192, 132, 252, 0.1);
+  }
+  100% {
+    border-color: rgba(255, 107, 157, 0.3);
+    box-shadow: 0 0 15px rgba(255, 107, 157, 0.2), inset 0 0 8px rgba(255, 107, 157, 0.1);
+  }
 }
 
 .panel-header {
