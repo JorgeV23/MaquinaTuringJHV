@@ -341,13 +341,3 @@ turing/
 ├── script.js     → Lógica de la MT, controlador UI y validaciones
 └── README.md     → Este archivo de documentación
 ```
-
----
-
-## 👨‍💻 Autor
-
-Proyecto desarrollado como parte del curso de **Teoría de la Computación**.
-
----
-
-> **Tip:** Para crear tu propia Máquina de Turing, primero piensa en qué transformación quieres hacer sobre la cadena, define los estados necesarios, y luego escribe las transiciones una por una. ¡El simulador te ayudará a visualizar si tu diseño es correcto!
