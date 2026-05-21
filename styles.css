@@ -145,7 +145,7 @@ body::before {
   z-index: 1;
   max-width: 1400px;
   margin: 0 auto;
-  padding: 2rem 1.5rem;
+  padding: 5rem 1.5rem 2rem;
 }
 
 /* --- Header --- */
@@ -153,6 +153,42 @@ body::before {
   text-align: center;
   margin-bottom: 2.5rem;
   animation: fadeInDown 0.6s ease-out;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+/* --- Navbar fija al hacer scroll --- */
+.sticky-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1.5rem;
+  background: transparent;
+  transform: translateY(-100%);
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+}
+
+.sticky-nav.visible {
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.sticky-nav .nav-title {
+  font-family: var(--font-retro);
+  font-size: 2.6rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  animation: retroColorCycle 6s linear infinite;
+  text-shadow: 2px 2px 0px #1e293b, 0 0 12px currentColor;
 }
 
 .header h1 {
@@ -178,13 +214,41 @@ body::before {
 }
 
 @keyframes retroColorCycle {
-  0%   { color: #ff6b9d; } /* Pink */
-  16%  { color: #ffa751; } /* Orange */
-  33%  { color: #ffe259; } /* Yellow */
-  50%  { color: #a8e063; } /* Green */
-  66%  { color: #69d2e7; } /* Blue */
-  83%  { color: #c084fc; } /* Purple */
-  100% { color: #ff6b9d; } /* Pink */
+  0% {
+    color: #ff6b9d;
+  }
+
+  /* Pink */
+  16% {
+    color: #ffa751;
+  }
+
+  /* Orange */
+  33% {
+    color: #ffe259;
+  }
+
+  /* Yellow */
+  50% {
+    color: #a8e063;
+  }
+
+  /* Green */
+  66% {
+    color: #69d2e7;
+  }
+
+  /* Blue */
+  83% {
+    color: #c084fc;
+  }
+
+  /* Purple */
+  100% {
+    color: #ff6b9d;
+  }
+
+  /* Pink */
 }
 
 .title-wrapper {
@@ -240,10 +304,41 @@ body::before {
 }
 
 .subtitle {
+  font-family: var(--font-retro);
   color: var(--text-secondary);
-  font-size: 0.95rem;
-  margin-top: 0.8rem;
+  font-size: 0.55rem;
+  margin-top: 1.2rem;
   font-weight: 400;
+  letter-spacing: 0.04em;
+  line-height: 1.8;
+}
+
+/* --- Boton Empezar — Estilo retro igual al titulo --- */
+.btn-start {
+  font-family: var(--font-retro);
+  font-size: 1.2rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  animation: retroColorCycle 6s linear infinite;
+  text-shadow: 2px 2px 0px #1e293b, 0 0 14px currentColor;
+  background: transparent;
+  border: 2px solid currentColor;
+  border-radius: var(--radius-md);
+  padding: 0.85rem 1.6rem;
+  cursor: pointer;
+  margin-top: 1.5rem;
+  position: relative;
+  transition: transform var(--transition-fast);
+  box-shadow: 0 0 18px currentColor;
+}
+
+.btn-start:hover {
+  transform: scale(1.08);
+  text-shadow: 3px 3px 0px #1e293b, 0 0 22px currentColor;
+}
+
+.btn-start:active {
+  transform: scale(0.97);
 }
 
 /* --- Main Content Grid --- */
@@ -276,26 +371,32 @@ body::before {
     border-color: rgba(255, 107, 157, 0.3);
     box-shadow: 0 0 15px rgba(255, 107, 157, 0.2), inset 0 0 8px rgba(255, 107, 157, 0.1);
   }
+
   16% {
     border-color: rgba(255, 167, 81, 0.3);
     box-shadow: 0 0 15px rgba(255, 167, 81, 0.2), inset 0 0 8px rgba(255, 167, 81, 0.1);
   }
+
   33% {
     border-color: rgba(255, 226, 89, 0.3);
     box-shadow: 0 0 15px rgba(255, 226, 89, 0.2), inset 0 0 8px rgba(255, 226, 89, 0.1);
   }
+
   50% {
     border-color: rgba(168, 224, 99, 0.3);
     box-shadow: 0 0 15px rgba(168, 224, 99, 0.2), inset 0 0 8px rgba(168, 224, 99, 0.1);
   }
+
   66% {
     border-color: rgba(105, 210, 231, 0.3);
     box-shadow: 0 0 15px rgba(105, 210, 231, 0.2), inset 0 0 8px rgba(105, 210, 231, 0.1);
   }
+
   83% {
     border-color: rgba(192, 132, 252, 0.3);
     box-shadow: 0 0 15px rgba(192, 132, 252, 0.2), inset 0 0 8px rgba(192, 132, 252, 0.1);
   }
+
   100% {
     border-color: rgba(255, 107, 157, 0.3);
     box-shadow: 0 0 15px rgba(255, 107, 157, 0.2), inset 0 0 8px rgba(255, 107, 157, 0.1);
@@ -785,14 +886,14 @@ input[type="range"]::-webkit-slider-thumb:hover {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
-  padding: 3.2rem 1.25rem 2.8rem;
+  padding: 2.2rem 1.25rem 2.8rem;
   overflow: hidden;
 }
 
 /* --- Head Tracker (above active cell) --- */
 .head-tracker {
   position: absolute;
-  top: 0.35rem;
+  top: 0.2rem;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -810,7 +911,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 
 .head-tracker-label {
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;

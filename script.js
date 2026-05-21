@@ -1,8 +1,29 @@
-/* ============================================
-   SIMULADOR DE MAQUINA DE TURING - LOGICA
-   ============================================ */
 
 // ============ Referencias del DOM ============
+function irSimulador() {
+  document.querySelector('.app-container')
+    .scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ============ Navbar fija al hacer scroll ============
+(function () {
+  const stickyNav = document.getElementById('sticky-nav');
+  const header = document.querySelector('.header');
+  if (!stickyNav || !header) return;
+
+  const observer = new IntersectionObserver(
+    ([entry]) => {
+      if (entry.isIntersecting) {
+        stickyNav.classList.remove('visible');
+      } else {
+        stickyNav.classList.add('visible');
+      }
+    },
+    { threshold: 0.1 }
+  );
+  observer.observe(header);
+})();
+
 const DOM = {
   inputString: document.getElementById('input-string'),
   tapeAlphabet: document.getElementById('tape-alphabet'),
@@ -317,7 +338,7 @@ class UIController {
 
     // Enfocar el primer input de la nueva fila
     if (!data.state) {
-      row.querySelector('.tr-state').focus();
+      row.querySelector('.tr-state').focus({ preventScroll: true });
     }
   }
 
@@ -593,6 +614,11 @@ class UIController {
     this.updateFormalDefinition();
     this.clearLog();
     this.addLogEntry('info', `Máquina inicializada. Cadena: "${inputString}"`);
+
+    // Scroll automático hacia el simulador
+    document.querySelector('.app-container')
+      .scrollIntoView({ behavior: 'smooth', block: 'start' });
+
 
     // Habilitar botones
     DOM.btnStep.disabled = false;
@@ -1103,3 +1129,5 @@ class UIController {
 document.addEventListener('DOMContentLoaded', () => {
   const app = new UIController();
 });
+
+
