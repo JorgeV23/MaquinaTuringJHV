@@ -68,14 +68,166 @@ const DOM = {
 };
 
 
-// ============ Clase Maquina de Turing ============
+// ============================================================
+// COMPONENTE 1: AlphabetDetector
+// Detecta Σ desde la cadena de entrada y calcula Γ
+// ============================================================
+class AlphabetDetector {
+  /**
+   * Detectar el alfabeto de entrada Σ desde una cadena.
+   * @param {string} inputString - La cadena de entrada
+   * @returns {string[]} Alfabeto ordenado (sin duplicados)
+   */
+  static detectInputAlphabet(inputString) {
+    if (!inputString) return [];
+    return [...new Set(inputString.split(''))].sort();
+  }
+
+  /**
+   * Construir el alfabeto de cinta Γ = Σ ∪ {B} ∪ auxiliares.
+   * @param {string[]} inputAlphabet - Alfabeto de entrada Σ
+   * @param {string[]} auxiliarySymbols - Símbolos auxiliares (ej: ['X','Y'])
+   * @returns {string[]} Alfabeto de cinta ordenado
+   */
+  static buildTapeAlphabet(inputAlphabet, auxiliarySymbols = []) {
+    const gamma = new Set(inputAlphabet);
+    gamma.add('B'); // blanco siempre incluido
+    auxiliarySymbols.forEach(s => gamma.add(s));
+    return [...gamma].sort();
+  }
+}
+
+
+// ============================================================
+// COMPONENTE 2: Tape
+// Gestión encapsulada de la cinta infinita
+// ============================================================
+class Tape {
+  /**
+   * @param {string} inputString - Cadena de entrada
+   * @param {string} blankSymbol - Símbolo blanco (default 'B')
+   */
+  constructor(inputString = '', blankSymbol = 'B') {
+    this.blankSymbol = blankSymbol;
+    this.cells = inputString ? inputString.split('') : [this.blankSymbol];
+
+    // Agregar blancos de relleno
+    this.cells.unshift(this.blankSymbol);
+    this.cells.push(this.blankSymbol);
+
+    this.headPosition = 1; // Iniciar en el primer símbolo real
+  }
+
+  /** Leer el símbolo bajo el cabezal */
+  read() {
+    return this.cells[this.headPosition] || this.blankSymbol;
+  }
+
+  /** Escribir un símbolo en la posición del cabezal */
+  write(symbol) {
+    this.cells[this.headPosition] = symbol;
+  }
+
+  /**
+   * Mover el cabezal.
+   * @param {string} direction - 'D' (derecha), 'I' (izquierda), 'S' (sin movimiento)
+   */
+  moveHead(direction) {
+    if (direction === 'D') {
+      this.headPosition++;
+      if (this.headPosition >= this.cells.length) {
+        this.cells.push(this.blankSymbol);
+      }
+    } else if (direction === 'I') {
+      this.headPosition--;
+      if (this.headPosition < 0) {
+        this.cells.unshift(this.blankSymbol);
+        this.headPosition = 0;
+      }
+    }
+    // 'S' — sin movimiento
+  }
+
+  /** Obtener datos para visualización */
+  getDisplay() {
+    return {
+      cells: [...this.cells],
+      headPosition: this.headPosition,
+    };
+  }
+}
+
+
+// ============================================================
+// COMPONENTE 3: TransitionEngine
+// Almacén y lookup de transiciones δ(q, σ) → (q', σ', D)
+// ============================================================
+class TransitionEngine {
+  constructor() {
+    this.transitions = {};
+  }
+
+  /**
+   * Agregar una transición.
+   * @param {string} state - Estado actual
+   * @param {string} readSymbol - Símbolo leído
+   * @param {string} nextState - Estado siguiente
+   * @param {string} writeSymbol - Símbolo a escribir
+   * @param {string} direction - Dirección ('D', 'I', 'S')
+   */
+  addTransition(state, readSymbol, nextState, writeSymbol, direction) {
+    const key = `${state},${readSymbol}`;
+    this.transitions[key] = {
+      nextState,
+      writeSymbol,
+      direction: direction.toUpperCase(),
+    };
+  }
+
+  /**
+   * Buscar una transición.
+   * @param {string} state - Estado actual
+   * @param {string} symbol - Símbolo leído
+   * @returns {object|null} La transición encontrada o null
+   */
+  getTransition(state, symbol) {
+    const key = `${state},${symbol}`;
+    return this.transitions[key] || null;
+  }
+
+  /**
+   * Cargar transiciones desde una lista de objetos.
+   * @param {Array} transitionsList - [{state, readSymbol, nextState, writeSymbol, direction}]
+   */
+  loadFromList(transitionsList) {
+    this.transitions = {};
+    for (const t of transitionsList) {
+      this.addTransition(t.state, t.readSymbol, t.nextState, t.writeSymbol, t.direction);
+    }
+  }
+
+  /** Obtener todas las claves de transición (para análisis) */
+  getAllKeys() {
+    return Object.keys(this.transitions);
+  }
+
+  /** Obtener la transición raw por clave */
+  getRaw() {
+    return { ...this.transitions };
+  }
+}
+
+
+// ============================================================
+// COMPONENTE 4: TuringMachine (Refactorizada)
+// Orquesta Tape, TransitionEngine y AlphabetDetector
+// ============================================================
 class TuringMachine {
   constructor() {
-    this.tape = [];
-    this.headPosition = 0;
+    this.tape = null;
+    this.engine = new TransitionEngine();
     this.currentState = '';
     this.steps = 0;
-    this.transitions = {};  // { "estado,simbolo": { nextState, writeSymbol, direction } }
     this.initialState = '';
     this.finalStates = new Set();
     this.isRunning = false;
@@ -83,27 +235,19 @@ class TuringMachine {
     this.autoInterval = null;
     this.blankSymbol = 'B';
 
-    // Componentes de la definicion formal
+    // Componentes de la definición formal
     this.Q = new Set();      // Estados
     this.Sigma = new Set();   // Alfabeto de entrada
     this.Gamma = new Set();   // Alfabeto de cinta
   }
 
   /**
-   * Inicializar la maquina con la configuracion dada
+   * Inicializar la máquina con la configuración dada
    */
   init(inputString, initialState, finalStates, transitionsList) {
-    // Procesar cinta
-    this.tape = inputString.split('');
-    if (this.tape.length === 0) {
-      this.tape = [this.blankSymbol];
-    }
+    // Crear cinta
+    this.tape = new Tape(inputString, this.blankSymbol);
 
-    // Agregar blancos de relleno
-    this.tape.unshift(this.blankSymbol);
-    this.tape.push(this.blankSymbol);
-
-    this.headPosition = 1; // Iniciar en el primer simbolo real
     this.initialState = initialState;
     this.currentState = initialState;
     this.steps = 0;
@@ -115,8 +259,10 @@ class TuringMachine {
       finalStates.split(',').map(s => s.trim()).filter(Boolean)
     );
 
-    // Procesar transiciones
-    this.transitions = {};
+    // Cargar transiciones en el motor
+    this.engine.loadFromList(transitionsList);
+
+    // Construir conjuntos formales
     this.Q = new Set();
     this.Sigma = new Set();
     this.Gamma = new Set();
@@ -129,42 +275,43 @@ class TuringMachine {
     this.finalStates.forEach(s => this.Q.add(s));
 
     for (const t of transitionsList) {
-      const key = `${t.state},${t.readSymbol}`;
-      this.transitions[key] = {
-        nextState: t.nextState,
-        writeSymbol: t.writeSymbol,
-        direction: t.direction.toUpperCase(),
-      };
-
-      // Recopilar conjuntos de la definicion formal
+      // Recopilar estados
       this.Q.add(t.state);
       this.Q.add(t.nextState);
+
+      // Recopilar alfabetos
       this.Gamma.add(t.readSymbol);
       this.Gamma.add(t.writeSymbol);
 
-      // Sigma es el alfabeto de entrada (Gamma menos blanco)
+      // Sigma es el alfabeto de entrada (Gamma menos blanco y auxiliares comunes)
       if (t.readSymbol !== this.blankSymbol) this.Sigma.add(t.readSymbol);
       if (t.writeSymbol !== this.blankSymbol) this.Sigma.add(t.writeSymbol);
     }
 
-    // Agregar simbolos de la cinta a los conjuntos
-    for (const sym of this.tape) {
+    // Agregar símbolos de la cinta a los conjuntos
+    for (const sym of this.tape.cells) {
       this.Gamma.add(sym);
       if (sym !== this.blankSymbol) this.Sigma.add(sym);
     }
+
+    // Detectar Σ real: solo los símbolos que aparecen en la cadena de entrada
+    const inputAlphabet = AlphabetDetector.detectInputAlphabet(inputString);
+    // Limpiar Sigma para que solo contenga los del input
+    // (Γ tiene todos, Σ solo los de entrada)
+    this.Sigma = new Set(inputAlphabet);
   }
 
   /**
-   * Ejecutar un paso de la maquina
-   * @returns {object|null} Resultado del paso o null si termino
+   * Ejecutar un paso de la máquina
+   * @returns {object|null} Resultado del paso o null si terminó
    */
   step() {
     if (this.isFinished) return null;
 
-    // Leer simbolo actual
-    const readSymbol = this.tape[this.headPosition] || this.blankSymbol;
+    // Leer símbolo actual
+    const readSymbol = this.tape.read();
 
-    // Verificar si esta en estado final
+    // Verificar si está en estado final
     if (this.finalStates.has(this.currentState)) {
       this.isFinished = true;
       this.isRunning = false;
@@ -176,9 +323,8 @@ class TuringMachine {
       };
     }
 
-    // Buscar transicion
-    const key = `${this.currentState},${readSymbol}`;
-    const transition = this.transitions[key];
+    // Buscar transición usando el motor
+    const transition = this.engine.getTransition(this.currentState, readSymbol);
 
     if (!transition) {
       this.isFinished = true;
@@ -195,27 +341,13 @@ class TuringMachine {
     const prevState = this.currentState;
     const prevSymbol = readSymbol;
 
-    // Aplicar transicion
-    this.tape[this.headPosition] = transition.writeSymbol;
+    // Aplicar transición
+    this.tape.write(transition.writeSymbol);
     this.currentState = transition.nextState;
     this.steps++;
 
     // Mover cabezal
-    if (transition.direction === 'D') {
-      this.headPosition++;
-      // Extender cinta a la derecha si es necesario
-      if (this.headPosition >= this.tape.length) {
-        this.tape.push(this.blankSymbol);
-      }
-    } else if (transition.direction === 'I') {
-      this.headPosition--;
-      // Extender cinta a la izquierda si es necesario
-      if (this.headPosition < 0) {
-        this.tape.unshift(this.blankSymbol);
-        this.headPosition = 0;
-      }
-    }
-    // 'S' (Sin movimiento) - el cabezal no se mueve
+    this.tape.moveHead(transition.direction);
 
     return {
       type: 'step',
@@ -226,7 +358,7 @@ class TuringMachine {
       writeSymbol: transition.writeSymbol,
       direction: transition.direction,
       state: this.currentState,
-      symbol: this.tape[this.headPosition] || this.blankSymbol,
+      symbol: this.tape.read(),
     };
   }
 
@@ -234,14 +366,14 @@ class TuringMachine {
    * Obtener contenido de la cinta para mostrar
    */
   getTapeDisplay() {
-    return {
-      cells: [...this.tape],
-      headPosition: this.headPosition,
-    };
+    if (!this.tape) {
+      return { cells: [], headPosition: 0 };
+    }
+    return this.tape.getDisplay();
   }
 
   /**
-   * Obtener definicion formal
+   * Obtener definición formal
    */
   getFormalDefinition() {
     return {
@@ -256,7 +388,473 @@ class TuringMachine {
 }
 
 
-// ============ Controlador de Interfaz ============
+// ============================================================
+// COMPONENTE 5: ExerciseGenerators
+// Generadores dinámicos de transiciones para cada ejercicio
+// Cada generador implementa generateTransitions(alphabet)
+// ============================================================
+const ExerciseGenerators = {
+
+  // ──────────────────────────────────────────────────────────
+  // Ejercicio 1: Reemplazar todos los símbolos por X
+  // Antes: solo reemplazaba '1' por 'X'
+  // Ahora: reemplaza CUALQUIER símbolo del alfabeto por X
+  // ──────────────────────────────────────────────────────────
+  replaceWithX: {
+    generateTransitions(alphabet) {
+      const transitions = [];
+
+      // Para cada símbolo del alfabeto, reemplazar por X
+      for (const symbol of alphabet) {
+        transitions.push({
+          state: 'q0',
+          readSymbol: symbol,
+          nextState: 'q0',
+          writeSymbol: 'X',
+          direction: 'D',
+        });
+      }
+
+      // Al llegar al blanco, terminar
+      transitions.push({
+        state: 'q0',
+        readSymbol: 'B',
+        nextState: 'qf',
+        writeSymbol: 'B',
+        direction: 'I',
+      });
+
+      return {
+        defaultInput: 'abcba',
+        initialState: 'q0',
+        finalStates: 'qf',
+        auxiliarySymbols: ['X'],
+        transitions,
+        description: 'Reemplazar símbolos por X',
+      };
+    },
+  },
+
+  // ──────────────────────────────────────────────────────────
+  // Ejercicio 2: Rotar símbolos (antes "invertir bits")
+  // Antes: 0→1, 1→0
+  // Ahora: cada símbolo se transforma al siguiente en el
+  //        alfabeto de forma circular (a→b, b→c, c→a)
+  // ──────────────────────────────────────────────────────────
+  rotateSymbols: {
+    generateTransitions(alphabet) {
+      const transitions = [];
+      const sorted = [...alphabet].sort();
+
+      // Rotar circularmente: cada símbolo → el siguiente
+      for (let i = 0; i < sorted.length; i++) {
+        const current = sorted[i];
+        const next = sorted[(i + 1) % sorted.length];
+        transitions.push({
+          state: 'q0',
+          readSymbol: current,
+          nextState: 'q0',
+          writeSymbol: next,
+          direction: 'D',
+        });
+      }
+
+      // Al llegar al blanco, terminar
+      transitions.push({
+        state: 'q0',
+        readSymbol: 'B',
+        nextState: 'qf',
+        writeSymbol: 'B',
+        direction: 'I',
+      });
+
+      return {
+        defaultInput: 'abcabc',
+        initialState: 'q0',
+        finalStates: 'qf',
+        auxiliarySymbols: [],
+        transitions,
+        description: 'Rotar símbolos',
+      };
+    },
+  },
+
+  // ──────────────────────────────────────────────────────────
+  // Ejercicio 3: Agregar símbolo al final
+  // Antes: agregar '1' al final
+  // Ahora: agrega el PRIMER símbolo del alfabeto al final
+  // ──────────────────────────────────────────────────────────
+  appendSymbol: {
+    generateTransitions(alphabet) {
+      const transitions = [];
+      const sorted = [...alphabet].sort();
+      const symbolToAppend = sorted[0]; // primer símbolo del alfabeto
+
+      // Avanzar sobre cualquier símbolo del alfabeto
+      for (const symbol of sorted) {
+        transitions.push({
+          state: 'q0',
+          readSymbol: symbol,
+          nextState: 'q0',
+          writeSymbol: symbol,
+          direction: 'D',
+        });
+      }
+
+      // Al llegar al blanco, escribir el símbolo y aceptar
+      transitions.push({
+        state: 'q0',
+        readSymbol: 'B',
+        nextState: 'qf',
+        writeSymbol: symbolToAppend,
+        direction: 'S',
+      });
+
+      return {
+        defaultInput: 'abca',
+        initialState: 'q0',
+        finalStates: 'qf',
+        auxiliarySymbols: [],
+        transitions,
+        description: `Agregar "${symbolToAppend}" al final`,
+      };
+    },
+  },
+
+  // ──────────────────────────────────────────────────────────
+  // Ejercicio 4: Verificar palíndromo genérico
+  // Antes: solo binario (0, 1) con X/Y fijos
+  // Ahora: genera estados buscar_X / verificar_X por cada
+  //        símbolo del alfabeto, con marcadores auxiliares
+  //        dinámicos
+  // ──────────────────────────────────────────────────────────
+  palindrome: {
+    generateTransitions(alphabet) {
+      const transitions = [];
+      const sorted = [...alphabet].sort();
+
+      // Asignar marcadores auxiliares únicos para cada símbolo
+      // Pool de marcadores que no colisionan con el alfabeto
+      const auxiliaryPool = 'XYZWVUTSNMKJHGFDPQR'.split('');
+      const markers = {};
+      const usedMarkers = [];
+      let poolIdx = 0;
+
+      for (const sym of sorted) {
+        // Buscar un marcador que no esté en el alfabeto
+        while (poolIdx < auxiliaryPool.length && sorted.includes(auxiliaryPool[poolIdx])) {
+          poolIdx++;
+        }
+        if (poolIdx < auxiliaryPool.length) {
+          markers[sym] = auxiliaryPool[poolIdx];
+          usedMarkers.push(auxiliaryPool[poolIdx]);
+          poolIdx++;
+        }
+      }
+
+      const allMarkers = Object.values(markers);
+
+      // ── q0: Leer extremo izquierdo sin marcar ──
+      for (const sym of sorted) {
+        transitions.push({
+          state: 'q0',
+          readSymbol: sym,
+          nextState: `buscar_${sym}`,
+          writeSymbol: markers[sym],
+          direction: 'D',
+        });
+      }
+      // Saltar marcadores ya procesados
+      for (const marker of allMarkers) {
+        transitions.push({
+          state: 'q0',
+          readSymbol: marker,
+          nextState: 'q0',
+          writeSymbol: marker,
+          direction: 'D',
+        });
+      }
+      // Si todo marcado o vacío → aceptar
+      transitions.push({
+        state: 'q0',
+        readSymbol: 'B',
+        nextState: 'qf',
+        writeSymbol: 'B',
+        direction: 'S',
+      });
+
+      // ── Por cada símbolo: buscar_X → ir al final → verificar_X ──
+      for (const sym of sorted) {
+        const searchState = `buscar_${sym}`;
+        const verifyState = `verificar_${sym}`;
+
+        // buscar_X: avanzar pasando todo hasta llegar a B
+        for (const s of sorted) {
+          transitions.push({
+            state: searchState,
+            readSymbol: s,
+            nextState: searchState,
+            writeSymbol: s,
+            direction: 'D',
+          });
+        }
+        for (const m of allMarkers) {
+          transitions.push({
+            state: searchState,
+            readSymbol: m,
+            nextState: searchState,
+            writeSymbol: m,
+            direction: 'D',
+          });
+        }
+        // Al llegar a B, retroceder para buscar el último sin marcar
+        transitions.push({
+          state: searchState,
+          readSymbol: 'B',
+          nextState: verifyState,
+          writeSymbol: 'B',
+          direction: 'I',
+        });
+
+        // verificar_X: retroceder saltando marcadores
+        for (const m of allMarkers) {
+          transitions.push({
+            state: verifyState,
+            readSymbol: m,
+            nextState: verifyState,
+            writeSymbol: m,
+            direction: 'I',
+          });
+        }
+        // El último sin marcar DEBE ser el mismo símbolo
+        transitions.push({
+          state: verifyState,
+          readSymbol: sym,
+          nextState: 'volver',
+          writeSymbol: markers[sym],
+          direction: 'I',
+        });
+        // Si encuentra B sin encontrar símbolo → elemento medio → aceptar
+        transitions.push({
+          state: verifyState,
+          readSymbol: 'B',
+          nextState: 'qf',
+          writeSymbol: 'B',
+          direction: 'S',
+        });
+        // Si encuentra otro símbolo del alfabeto (no el esperado)
+        // → sin transición → RECHAZO (no es palíndromo)
+      }
+
+      // ── volver: regresar al extremo izquierdo ──
+      for (const s of sorted) {
+        transitions.push({
+          state: 'volver',
+          readSymbol: s,
+          nextState: 'volver',
+          writeSymbol: s,
+          direction: 'I',
+        });
+      }
+      for (const m of allMarkers) {
+        transitions.push({
+          state: 'volver',
+          readSymbol: m,
+          nextState: 'volver',
+          writeSymbol: m,
+          direction: 'I',
+        });
+      }
+      transitions.push({
+        state: 'volver',
+        readSymbol: 'B',
+        nextState: 'q0',
+        writeSymbol: 'B',
+        direction: 'D',
+      });
+
+      return {
+        defaultInput: 'abcba',
+        initialState: 'q0',
+        finalStates: 'qf',
+        auxiliarySymbols: usedMarkers,
+        transitions,
+        description: 'Verificar palíndromo',
+      };
+    },
+  },
+
+  // ──────────────────────────────────────────────────────────
+  // Ejercicio 5: Igual cantidad de dos símbolos
+  // Antes: emparejar '0' con '1'
+  // Ahora: emparejar alphabet[0] con alphabet[1]
+  //        dinámicamente
+  // ──────────────────────────────────────────────────────────
+  equalCount: {
+    generateTransitions(alphabet) {
+      const sorted = [...alphabet].sort();
+      const transitions = [];
+
+      // Necesitamos al menos 2 símbolos para emparejar
+      if (sorted.length < 2) {
+        // Caso degenerado: un solo símbolo, aceptar siempre (trivial)
+        transitions.push({
+          state: 'q0',
+          readSymbol: sorted[0],
+          nextState: 'q0',
+          writeSymbol: sorted[0],
+          direction: 'D',
+        });
+        transitions.push({
+          state: 'q0',
+          readSymbol: 'B',
+          nextState: 'qf',
+          writeSymbol: 'B',
+          direction: 'S',
+        });
+
+        return {
+          defaultInput: sorted[0].repeat(4),
+          initialState: 'q0',
+          finalStates: 'qf',
+          auxiliarySymbols: [],
+          transitions,
+          description: 'Verificar cantidad (un solo símbolo)',
+        };
+      }
+
+      const symA = sorted[0]; // primer símbolo
+      const symB = sorted[1]; // segundo símbolo
+
+      // ── q0: Buscar primer símbolo sin marcar ──
+      // Si symA → marcar X, ir a q1 (buscar symB)
+      transitions.push({
+        state: 'q0',
+        readSymbol: symA,
+        nextState: 'q1',
+        writeSymbol: 'X',
+        direction: 'D',
+      });
+      // Si symB → marcar X, ir a q2 (buscar symA)
+      transitions.push({
+        state: 'q0',
+        readSymbol: symB,
+        nextState: 'q2',
+        writeSymbol: 'X',
+        direction: 'D',
+      });
+      // Saltar marcados
+      transitions.push({
+        state: 'q0',
+        readSymbol: 'X',
+        nextState: 'q0',
+        writeSymbol: 'X',
+        direction: 'D',
+      });
+      // Si B → todos emparejados → aceptar
+      transitions.push({
+        state: 'q0',
+        readSymbol: 'B',
+        nextState: 'qf',
+        writeSymbol: 'B',
+        direction: 'S',
+      });
+
+      // ── q1: Vio symA, buscar symB sin marcar ──
+      transitions.push({
+        state: 'q1',
+        readSymbol: symA,
+        nextState: 'q1',
+        writeSymbol: symA,
+        direction: 'D',
+      });
+      transitions.push({
+        state: 'q1',
+        readSymbol: symB,
+        nextState: 'q3',
+        writeSymbol: 'X',
+        direction: 'I',
+      });
+      transitions.push({
+        state: 'q1',
+        readSymbol: 'X',
+        nextState: 'q1',
+        writeSymbol: 'X',
+        direction: 'D',
+      });
+      // q1 + B → sin transición → RECHAZO (sobran symA)
+
+      // ── q2: Vio symB, buscar symA sin marcar ──
+      transitions.push({
+        state: 'q2',
+        readSymbol: symA,
+        nextState: 'q3',
+        writeSymbol: 'X',
+        direction: 'I',
+      });
+      transitions.push({
+        state: 'q2',
+        readSymbol: symB,
+        nextState: 'q2',
+        writeSymbol: symB,
+        direction: 'D',
+      });
+      transitions.push({
+        state: 'q2',
+        readSymbol: 'X',
+        nextState: 'q2',
+        writeSymbol: 'X',
+        direction: 'D',
+      });
+      // q2 + B → sin transición → RECHAZO (sobran symB)
+
+      // ── q3: Regresar al inicio ──
+      transitions.push({
+        state: 'q3',
+        readSymbol: symA,
+        nextState: 'q3',
+        writeSymbol: symA,
+        direction: 'I',
+      });
+      transitions.push({
+        state: 'q3',
+        readSymbol: symB,
+        nextState: 'q3',
+        writeSymbol: symB,
+        direction: 'I',
+      });
+      transitions.push({
+        state: 'q3',
+        readSymbol: 'X',
+        nextState: 'q3',
+        writeSymbol: 'X',
+        direction: 'I',
+      });
+      transitions.push({
+        state: 'q3',
+        readSymbol: 'B',
+        nextState: 'q0',
+        writeSymbol: 'B',
+        direction: 'D',
+      });
+
+      return {
+        defaultInput: symA + symA + symB + symB,
+        initialState: 'q0',
+        finalStates: 'qf',
+        auxiliarySymbols: ['X'],
+        transitions,
+        description: `Igual cantidad de "${symA}" y "${symB}"`,
+      };
+    },
+  },
+};
+
+
+// ============================================================
+// COMPONENTE 6: UIController
+// Controlador de la interfaz (refactorizado)
+// ============================================================
 class UIController {
   constructor() {
     this.machine = new TuringMachine();
@@ -265,7 +863,7 @@ class UIController {
     this.lastDirection = null; // Track last head movement direction
 
     this.bindEvents();
-    this.addTransitionRow(); // Iniciar con una fila vacia
+    this.addTransitionRow(); // Iniciar con una fila vacía
   }
 
   // ---- Enlace de Eventos ----
@@ -276,13 +874,13 @@ class UIController {
     DOM.btnReset.addEventListener('click', () => this.resetMachine());
     DOM.btnAddTransition.addEventListener('click', () => this.addTransitionRow());
 
-    // Boton de ejemplos: abrir/cerrar menu desplegable
+    // Botón de ejemplos: abrir/cerrar menú desplegable
     DOM.btnLoadExample.addEventListener('click', (e) => {
       e.stopPropagation();
       DOM.exampleDropdown.classList.toggle('open');
     });
 
-    // Opciones del menu de ejemplos
+    // Opciones del menú de ejemplos
     DOM.exampleMenu.addEventListener('click', (e) => {
       const option = e.target.closest('.example-option');
       if (!option) return;
@@ -291,7 +889,7 @@ class UIController {
       DOM.exampleDropdown.classList.remove('open');
     });
 
-    // Cerrar menu al hacer clic fuera
+    // Cerrar menú al hacer clic fuera
     document.addEventListener('click', () => {
       DOM.exampleDropdown.classList.remove('open');
     });
@@ -306,7 +904,7 @@ class UIController {
     });
   }
 
-  // ---- Gestion de la Tabla de Transiciones ----
+  // ---- Gestión de la Tabla de Transiciones ----
   addTransitionRow(data = {}) {
     this.transitionRowCount++;
     const row = document.createElement('tr');
@@ -314,9 +912,9 @@ class UIController {
 
     row.innerHTML = `
       <td><input type="text" class="tr-state" value="${data.state || ''}" placeholder="q0" autocomplete="off"></td>
-      <td><input type="text" class="tr-read" value="${data.readSymbol || ''}" placeholder="1" autocomplete="off"></td>
+      <td><input type="text" class="tr-read" value="${data.readSymbol || ''}" placeholder="σ" autocomplete="off"></td>
       <td><input type="text" class="tr-next" value="${data.nextState || ''}" placeholder="q1" autocomplete="off"></td>
-      <td><input type="text" class="tr-write" value="${data.writeSymbol || ''}" placeholder="X" autocomplete="off"></td>
+      <td><input type="text" class="tr-write" value="${data.writeSymbol || ''}" placeholder="σ'" autocomplete="off"></td>
       <td>
         <select class="tr-dir">
           <option value="D" ${!data.direction || data.direction === 'D' ? 'selected' : ''}>D</option>
@@ -361,7 +959,7 @@ class UIController {
     return transitions;
   }
 
-  // ---- Ayudantes de Validacion ----
+  // ---- Ayudantes de Validación ----
   clearAllValidationErrors() {
     document.querySelectorAll('.input-error').forEach(el => el.classList.remove('input-error'));
     document.querySelectorAll('.field-error-msg').forEach(el => el.remove());
@@ -390,31 +988,31 @@ class UIController {
   }
 
   /**
-   * Valida si una cadena es un nombre de estado valido.
-   * Acepta formatos como: q0, q1, qf, q_accept, s0, etc.
-   * Debe iniciar con letra y contener solo letras, digitos y guiones bajos.
+   * Valida si una cadena es un nombre de estado válido.
+   * Acepta formatos como: q0, q1, qf, q_accept, s0, buscar_a, verificar_b, etc.
+   * Debe iniciar con letra y contener solo letras, dígitos y guiones bajos.
    */
   isValidStateName(name) {
     return /^[a-zA-Z][a-zA-Z0-9_]*$/.test(name);
   }
 
   /**
-   * Valida si una cadena es valida para la entrada de la cinta.
-   * Se permiten letras (a-z, A-Z) y digitos (0-9).
+   * Valida si una cadena es válida para la entrada de la cinta.
+   * Se permiten letras (a-z, A-Z) y dígitos (0-9).
    */
   isValidInputString(str) {
     return /^[a-zA-Z0-9]+$/.test(str);
   }
 
   /**
-   * Valida si un simbolo es valido para un campo de lectura/escritura.
-   * Un solo caracter: digito, letra o simbolo reconocido (X, Y, B, etc.)
+   * Valida si un símbolo es válido para un campo de lectura/escritura.
+   * Un solo carácter: dígito, letra o símbolo reconocido.
    */
   isValidSymbol(sym) {
     return /^[a-zA-Z0-9]$/.test(sym);
   }
 
-  // ---- Inicializacion de la Maquina ----
+  // ---- Inicialización de la Máquina ----
   initMachine() {
     this.clearAllValidationErrors();
 
@@ -427,7 +1025,7 @@ class UIController {
     // ---- Validate: Alfabeto de Cinta (Γ) ----
     let tapeAlphabet = new Set();
     if (!tapeAlphabetStr) {
-      this.showFieldError(DOM.tapeAlphabet, 'Define el alfabeto de cinta (Ej: 0,1,X,B).');
+      this.showFieldError(DOM.tapeAlphabet, 'Define el alfabeto de cinta (Ej: a,b,c,X,B).');
       hasErrors = true;
     } else {
       const symbols = tapeAlphabetStr.split(',').map(s => s.trim()).filter(Boolean);
@@ -457,7 +1055,7 @@ class UIController {
       this.showFieldError(DOM.inputString, 'Solo se permiten letras (a-z) y números (0-9).');
       hasErrors = true;
     } else if (tapeAlphabet.size > 0) {
-      // Validar cada caracter de la cadena contra el alfabeto definido
+      // Validar cada carácter de la cadena contra el alfabeto definido
       const invalidChars = [];
       for (const ch of inputString) {
         if (!tapeAlphabet.has(ch)) {
@@ -523,7 +1121,7 @@ class UIController {
       const writeSymbol = writeInput.value.trim();
       const direction = dirSelect.value;
 
-      // Saltar filas completamente vacias
+      // Saltar filas completamente vacías
       if (!state && !readSymbol && !nextState && !writeSymbol) {
         return;
       }
@@ -605,7 +1203,7 @@ class UIController {
       return;
     }
 
-    // Inicializar maquina
+    // Inicializar máquina
     this.machine.init(inputString, initialState, finalStatesStr, transitions);
 
     // Actualizar interfaz
@@ -613,7 +1211,10 @@ class UIController {
     this.updateStatus();
     this.updateFormalDefinition();
     this.clearLog();
-    this.addLogEntry('info', `Máquina inicializada. Cadena: "${inputString}"`);
+
+    // Detectar y mostrar el alfabeto de entrada detectado
+    const detectedAlphabet = AlphabetDetector.detectInputAlphabet(inputString);
+    this.addLogEntry('info', `Máquina inicializada. Cadena: "${inputString}" | Σ = {${detectedAlphabet.join(', ')}}`);
 
     // Scroll automático hacia el simulador
     document.querySelector('.app-container')
@@ -634,7 +1235,7 @@ class UIController {
     this.showToast('Máquina inicializada correctamente', 'success');
   }
 
-  // ---- Ejecucion por Paso ----
+  // ---- Ejecución por Paso ----
   executeStep() {
     if (this.machine.isFinished) return;
 
@@ -642,7 +1243,7 @@ class UIController {
     if (!result) return;
 
     if (result.type === 'step') {
-      this.lastDirection = result.direction; // 'R', 'L', or 'S'
+      this.lastDirection = result.direction; // 'D', 'I', or 'S'
       this.addLogEntry('step', result);
     } else if (result.type === 'accepted') {
       this.addLogEntry('accepted', result.message);
@@ -656,7 +1257,7 @@ class UIController {
     this.updateStatus();
   }
 
-  // ---- Ejecucion Automatica ----
+  // ---- Ejecución Automática ----
   toggleAutoExecution() {
     if (this.autoInterval) {
       // Detener
@@ -670,7 +1271,7 @@ class UIController {
       this.showToast('Ejecución automática detenida', 'info');
     } else {
       // Iniciar
-      const speed = 2100 - parseInt(DOM.speedSlider.value); // Invertir: slider alto = rapido = intervalo bajo
+      const speed = 2100 - parseInt(DOM.speedSlider.value); // Invertir: slider alto = rápido = intervalo bajo
       this.autoInterval = setInterval(() => {
         if (this.machine.isFinished) {
           clearInterval(this.autoInterval);
@@ -692,7 +1293,7 @@ class UIController {
     }
   }
 
-  // ---- Maquina Finalizada ----
+  // ---- Máquina Finalizada ----
   onMachineFinished(type) {
     if (this.autoInterval) {
       clearInterval(this.autoInterval);
@@ -753,7 +1354,7 @@ class UIController {
     // Reiniciar registro
     this.clearLog();
 
-    // Reiniciar definicion
+    // Reiniciar definición
     DOM.definitionContent.innerHTML = '<p class="definition-placeholder">Inicia la máquina para ver la definición formal</p>';
 
     // Ocultar indicadores del cabezal
@@ -778,7 +1379,7 @@ class UIController {
         cell.classList.add('active');
       }
 
-      // Etiqueta de indice
+      // Etiqueta de índice
       const indexLabel = document.createElement('span');
       indexLabel.className = 'cell-index';
       indexLabel.textContent = index;
@@ -797,7 +1398,7 @@ class UIController {
           inline: 'center',
         });
 
-        // Activar animacion de pulso
+        // Activar animación de pulso
         activeCell.classList.add('written');
         setTimeout(() => activeCell.classList.remove('written'), 400);
 
@@ -847,10 +1448,10 @@ class UIController {
     }
   }
 
-  // ---- Actualizacion de Estado ----
+  // ---- Actualización de Estado ----
   updateStatus() {
     const m = this.machine;
-    const readSymbol = m.tape[m.headPosition] || m.blankSymbol;
+    const readSymbol = m.tape ? m.tape.read() : m.blankSymbol;
 
     DOM.currentState.textContent = m.currentState;
     DOM.currentSymbol.textContent = readSymbol;
@@ -902,11 +1503,11 @@ class UIController {
 
     DOM.logContainer.appendChild(entry);
 
-    // Desplazamiento automatico
+    // Desplazamiento automático
     DOM.logContainer.scrollTop = DOM.logContainer.scrollHeight;
   }
 
-  // ---- Definicion Formal ----
+  // ---- Definición Formal ----
   updateFormalDefinition() {
     const def = this.machine.getFormalDefinition();
 
@@ -920,183 +1521,55 @@ class UIController {
     `;
   }
 
-  // ---- Cargar Ejemplo ----
+  // ──────────────────────────────────────────────────────────
+  // Cargar Ejemplo (REFACTORIZADO)
+  // Usa ExerciseGenerators con generateTransitions(alphabet)
+  // ──────────────────────────────────────────────────────────
   loadExample(id) {
     // Limpiar transiciones existentes
     DOM.transitionsBody.innerHTML = '';
     this.transitionRowCount = 0;
 
-    if (id === 1) {
-      // Ejemplo 1: Reemplazar todos los 1 por X
-      DOM.inputString.value = '1101101';
-      DOM.tapeAlphabet.value = '0, 1, X, B';
-      DOM.initialState.value = 'q0';
-      DOM.finalStates.value = 'qf';
-      const transitions = [
-        { state: 'q0', readSymbol: '1', nextState: 'q0', writeSymbol: 'X', direction: 'D' },
-        { state: 'q0', readSymbol: '0', nextState: 'q0', writeSymbol: '0', direction: 'D' },
-        { state: 'q0', readSymbol: 'B', nextState: 'qf', writeSymbol: 'B', direction: 'I' },
-      ];
-      transitions.forEach(t => this.addTransitionRow(t));
-      this.showToast('Ejemplo cargado: Reemplazar 1 por X', 'success');
+    // Mapeo de IDs a generadores
+    const generatorMap = {
+      1: 'replaceWithX',
+      2: 'rotateSymbols',
+      3: 'appendSymbol',
+      4: 'palindrome',
+      5: 'equalCount',
+    };
 
-    } else if (id === 2) {
-      // Ejemplo 2: Invertir bits (0 a 1, 1 a 0)
-      DOM.inputString.value = '110100';
-      DOM.tapeAlphabet.value = '0, 1, B';
-      DOM.initialState.value = 'q0';
-      DOM.finalStates.value = 'qf';
-      const transitions = [
-        { state: 'q0', readSymbol: '0', nextState: 'q0', writeSymbol: '1', direction: 'D' },
-        { state: 'q0', readSymbol: '1', nextState: 'q0', writeSymbol: '0', direction: 'D' },
-        { state: 'q0', readSymbol: 'B', nextState: 'qf', writeSymbol: 'B', direction: 'I' },
-      ];
-      transitions.forEach(t => this.addTransitionRow(t));
-      this.showToast('Ejemplo cargado: Invertir bits', 'success');
-
-    } else if (id === 3) {
-      // Ejemplo 3: Agregar 1 al final de la cadena
-      DOM.inputString.value = '1010';
-      DOM.tapeAlphabet.value = '0, 1, B';
-      DOM.initialState.value = 'q0';
-      DOM.finalStates.value = 'qf';
-      const transitions = [
-        { state: 'q0', readSymbol: '0', nextState: 'q0', writeSymbol: '0', direction: 'D' },
-        { state: 'q0', readSymbol: '1', nextState: 'q0', writeSymbol: '1', direction: 'D' },
-        { state: 'q0', readSymbol: 'B', nextState: 'qf', writeSymbol: '1', direction: 'S' },
-      ];
-      transitions.forEach(t => this.addTransitionRow(t));
-      this.showToast('Ejemplo cargado: Agregar 1 al final', 'success');
-
-    } else if (id === 4) {
-      // ============================================================
-      // Ejemplo 4: Verificar palíndromo binario
-      // ============================================================
-      // Estrategia:
-      //   q0 — Leer extremo izquierdo: marcar 0→X o 1→Y, saltar ya-marcados
-      //   q1 — Vio 0, ir a la derecha buscando extremo derecho
-      //   q2 — Vio 1, ir a la derecha buscando extremo derecho
-      //   q3 — Vio 0, retroceder desde B buscando el último sin marcar (debe ser 0)
-      //   q4 — Vio 1, retroceder desde B buscando el último sin marcar (debe ser 1)
-      //   q5 — Coincidencia OK, regresar al extremo izquierdo
-      //   qf — Aceptar (es palíndromo)
-      //
-      // Rechazo: si q3 encuentra 1, o q4 encuentra 0 → sin transición → rechaza
-      // Caso impar: si q3/q4 llegan a B sin encontrar símbolo → elemento medio, aceptar
-      //
-      // Alfabeto de cinta: 0, 1, X (0 revisado), Y (1 revisado), B (blanco)
-      // Cadena de prueba: "1001" (palíndromo → acepta)
-      // Pruebas válidas:   0110, 1001, 10101
-      // Pruebas inválidas: 1100, 1010
-      // ============================================================
-      DOM.inputString.value = '1001';
-      DOM.tapeAlphabet.value = '0, 1, X, Y, B';
-      DOM.initialState.value = 'q0';
-      DOM.finalStates.value = 'qf';
-      const transitions = [
-        // q0: Leer extremo izquierdo sin marcar
-        { state: 'q0', readSymbol: '0', nextState: 'q1', writeSymbol: 'X', direction: 'D' },
-        { state: 'q0', readSymbol: '1', nextState: 'q2', writeSymbol: 'Y', direction: 'D' },
-        { state: 'q0', readSymbol: 'X', nextState: 'q0', writeSymbol: 'X', direction: 'D' },
-        { state: 'q0', readSymbol: 'Y', nextState: 'q0', writeSymbol: 'Y', direction: 'D' },
-        { state: 'q0', readSymbol: 'B', nextState: 'qf', writeSymbol: 'B', direction: 'S' },
-
-        // q1: Vio 0 a la izquierda, avanzar hasta el final derecho
-        { state: 'q1', readSymbol: '0', nextState: 'q1', writeSymbol: '0', direction: 'D' },
-        { state: 'q1', readSymbol: '1', nextState: 'q1', writeSymbol: '1', direction: 'D' },
-        { state: 'q1', readSymbol: 'X', nextState: 'q1', writeSymbol: 'X', direction: 'D' },
-        { state: 'q1', readSymbol: 'Y', nextState: 'q1', writeSymbol: 'Y', direction: 'D' },
-        { state: 'q1', readSymbol: 'B', nextState: 'q3', writeSymbol: 'B', direction: 'I' },
-
-        // q2: Vio 1 a la izquierda, avanzar hasta el final derecho
-        { state: 'q2', readSymbol: '0', nextState: 'q2', writeSymbol: '0', direction: 'D' },
-        { state: 'q2', readSymbol: '1', nextState: 'q2', writeSymbol: '1', direction: 'D' },
-        { state: 'q2', readSymbol: 'X', nextState: 'q2', writeSymbol: 'X', direction: 'D' },
-        { state: 'q2', readSymbol: 'Y', nextState: 'q2', writeSymbol: 'Y', direction: 'D' },
-        { state: 'q2', readSymbol: 'B', nextState: 'q4', writeSymbol: 'B', direction: 'I' },
-
-        // q3: Vio 0, buscar último sin marcar (debe ser 0 para coincidir)
-        { state: 'q3', readSymbol: 'X', nextState: 'q3', writeSymbol: 'X', direction: 'I' },
-        { state: 'q3', readSymbol: 'Y', nextState: 'q3', writeSymbol: 'Y', direction: 'I' },
-        { state: 'q3', readSymbol: '0', nextState: 'q5', writeSymbol: 'X', direction: 'I' },
-        // q3 + 1 → sin transición → RECHAZO (no coincide)
-        { state: 'q3', readSymbol: 'B', nextState: 'qf', writeSymbol: 'B', direction: 'S' },
-
-        // q4: Vio 1, buscar último sin marcar (debe ser 1 para coincidir)
-        { state: 'q4', readSymbol: 'X', nextState: 'q4', writeSymbol: 'X', direction: 'I' },
-        { state: 'q4', readSymbol: 'Y', nextState: 'q4', writeSymbol: 'Y', direction: 'I' },
-        { state: 'q4', readSymbol: '1', nextState: 'q5', writeSymbol: 'Y', direction: 'I' },
-        // q4 + 0 → sin transición → RECHAZO (no coincide)
-        { state: 'q4', readSymbol: 'B', nextState: 'qf', writeSymbol: 'B', direction: 'S' },
-
-        // q5: Regresar al extremo izquierdo
-        { state: 'q5', readSymbol: '0', nextState: 'q5', writeSymbol: '0', direction: 'I' },
-        { state: 'q5', readSymbol: '1', nextState: 'q5', writeSymbol: '1', direction: 'I' },
-        { state: 'q5', readSymbol: 'X', nextState: 'q5', writeSymbol: 'X', direction: 'I' },
-        { state: 'q5', readSymbol: 'Y', nextState: 'q5', writeSymbol: 'Y', direction: 'I' },
-        { state: 'q5', readSymbol: 'B', nextState: 'q0', writeSymbol: 'B', direction: 'D' },
-      ];
-      transitions.forEach(t => this.addTransitionRow(t));
-      this.showToast('Ejemplo cargado: Verificar palíndromo', 'success');
-
-    } else if (id === 5) {
-      // ============================================================
-      // Ejemplo 5: Igual cantidad de 0 y 1
-      // ============================================================
-      // Estrategia:
-      //   q0 — Buscar primer símbolo sin marcar (0 o 1)
-      //        Si 0 → marcar X, ir a q1 (buscar un 1)
-      //        Si 1 → marcar X, ir a q2 (buscar un 0)
-      //        Si X → saltar
-      //        Si B → todos emparejados → aceptar
-      //   q1 — Vio 0, buscar un 1 sin marcar hacia la derecha
-      //        Si 1 → marcar X, ir a q3 (regresar)
-      //        Si 0/X → saltar
-      //        Si B → sin transición → RECHAZO (sobran 0s)
-      //   q2 — Vio 1, buscar un 0 sin marcar hacia la derecha
-      //        Si 0 → marcar X, ir a q3 (regresar)
-      //        Si 1/X → saltar
-      //        Si B → sin transición → RECHAZO (sobran 1s)
-      //   q3 — Regresar al inicio
-      //   qf — Aceptar
-      //
-      // Alfabeto de cinta: 0, 1, X (marcado), B (blanco)
-      // Cadena de prueba: "0011" (igual cantidad → acepta)
-      // Pruebas válidas:   01, 0011, 1010
-      // Pruebas inválidas: 1110, 0001
-      // ============================================================
-      DOM.inputString.value = '0011';
-      DOM.tapeAlphabet.value = '0, 1, X, B';
-      DOM.initialState.value = 'q0';
-      DOM.finalStates.value = 'qf';
-      const transitions = [
-        // q0: Buscar primer símbolo sin marcar
-        { state: 'q0', readSymbol: '0', nextState: 'q1', writeSymbol: 'X', direction: 'D' },
-        { state: 'q0', readSymbol: '1', nextState: 'q2', writeSymbol: 'X', direction: 'D' },
-        { state: 'q0', readSymbol: 'X', nextState: 'q0', writeSymbol: 'X', direction: 'D' },
-        { state: 'q0', readSymbol: 'B', nextState: 'qf', writeSymbol: 'B', direction: 'S' },
-
-        // q1: Vio 0, buscar un 1 para emparejar
-        { state: 'q1', readSymbol: '0', nextState: 'q1', writeSymbol: '0', direction: 'D' },
-        { state: 'q1', readSymbol: '1', nextState: 'q3', writeSymbol: 'X', direction: 'I' },
-        { state: 'q1', readSymbol: 'X', nextState: 'q1', writeSymbol: 'X', direction: 'D' },
-        // q1 + B → sin transición → RECHAZO (sobran 0s)
-
-        // q2: Vio 1, buscar un 0 para emparejar
-        { state: 'q2', readSymbol: '0', nextState: 'q3', writeSymbol: 'X', direction: 'I' },
-        { state: 'q2', readSymbol: '1', nextState: 'q2', writeSymbol: '1', direction: 'D' },
-        { state: 'q2', readSymbol: 'X', nextState: 'q2', writeSymbol: 'X', direction: 'D' },
-        // q2 + B → sin transición → RECHAZO (sobran 1s)
-
-        // q3: Regresar al inicio para buscar el siguiente par
-        { state: 'q3', readSymbol: '0', nextState: 'q3', writeSymbol: '0', direction: 'I' },
-        { state: 'q3', readSymbol: '1', nextState: 'q3', writeSymbol: '1', direction: 'I' },
-        { state: 'q3', readSymbol: 'X', nextState: 'q3', writeSymbol: 'X', direction: 'I' },
-        { state: 'q3', readSymbol: 'B', nextState: 'q0', writeSymbol: 'B', direction: 'D' },
-      ];
-      transitions.forEach(t => this.addTransitionRow(t));
-      this.showToast('Ejemplo cargado: Igual cantidad de 0 y 1', 'success');
+    const generatorKey = generatorMap[id];
+    if (!generatorKey || !ExerciseGenerators[generatorKey]) {
+      this.showToast('Ejemplo no encontrado', 'error');
+      return;
     }
+
+    const generator = ExerciseGenerators[generatorKey];
+
+    // Generar transiciones con un alfabeto representativo no-binario
+    const representativeAlphabet = ['a', 'b', 'c'];
+    const result = generator.generateTransitions(representativeAlphabet);
+
+    // Detectar el alfabeto real desde la cadena de ejemplo generada
+    const detectedAlphabet = AlphabetDetector.detectInputAlphabet(result.defaultInput);
+
+    // Calcular Γ automáticamente
+    const tapeAlphabet = AlphabetDetector.buildTapeAlphabet(
+      detectedAlphabet,
+      result.auxiliarySymbols || []
+    );
+
+    // Llenar los campos de la UI
+    DOM.inputString.value = result.defaultInput;
+    DOM.tapeAlphabet.value = tapeAlphabet.join(', ');
+    DOM.initialState.value = result.initialState;
+    DOM.finalStates.value = result.finalStates;
+
+    // Agregar las transiciones generadas a la tabla
+    result.transitions.forEach(t => this.addTransitionRow(t));
+
+    this.showToast(`Ejemplo cargado: ${result.description}`, 'success');
   }
 
   // ---- Notificaciones Toast ----
@@ -1129,5 +1602,3 @@ class UIController {
 document.addEventListener('DOMContentLoaded', () => {
   const app = new UIController();
 });
-
-
