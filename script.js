@@ -413,6 +413,7 @@ class UIController {
     this.autoInterval = null;
     this.transitionRowCount = 0;
     this.lastDirection = null; // Track last head movement direction
+    this.selectedExercise = null; // Ejercicio activo para regeneración dinámica
 
     this.bindEvents();
     this.addTransitionRow(); // Iniciar con una fila vacía
@@ -424,7 +425,18 @@ class UIController {
     DOM.btnStep.addEventListener('click', () => this.executeStep());
     DOM.btnAuto.addEventListener('click', () => this.toggleAutoExecution());
     DOM.btnReset.addEventListener('click', () => this.resetMachine());
-    DOM.btnAddTransition.addEventListener('click', () => this.addTransitionRow());
+
+    // "Agregar Transición" manual → desactiva regeneración dinámica
+    DOM.btnAddTransition.addEventListener('click', () => {
+      this.selectedExercise = null;
+      this.addTransitionRow();
+    });
+
+    // Edición manual de cualquier celda en la tabla → desactiva regeneración
+    // Usamos delegación de eventos para cubrir filas añadidas dinámicamente
+    DOM.transitionsBody.addEventListener('input', () => {
+      this.selectedExercise = null;
+    });
 
     // Botón de ejemplos: abrir/cerrar menú desplegable
     DOM.btnLoadExample.addEventListener('click', (e) => {
@@ -566,6 +578,39 @@ class UIController {
 
   // ---- Inicialización de la Máquina ----
   initMachine() {
+    // Detener cualquier ejecución automática anterior antes de reiniciar
+    if (this.autoInterval) {
+      clearInterval(this.autoInterval);
+      this.autoInterval = null;
+    }
+
+    // ── PASO 0: Regeneración dinámica si hay ejercicio activo ──────────────
+    // Detectar el alfabeto real DESDE la cadena que el usuario escribió.
+    // Si hay un ejercicio cargado, regenerar transiciones y alfabeto de cinta
+    // automáticamente antes de cualquier validación.
+    const rawInput = DOM.inputString.value.trim();
+    if (this.selectedExercise && ExerciseGenerators[this.selectedExercise] && rawInput) {
+      const detectedAlphabet = AlphabetDetector.detectInputAlphabet(rawInput);
+      if (detectedAlphabet.length > 0) {
+        const machine = ExerciseGenerators[this.selectedExercise].generateTransitions(detectedAlphabet);
+        const tapeAlphabet = AlphabetDetector.buildTapeAlphabet(
+          detectedAlphabet,
+          machine.auxiliarySymbols || []
+        );
+
+        // Rellenar UI con los valores generados dinámicamente
+        DOM.tapeAlphabet.value = tapeAlphabet.join(', ');
+        DOM.initialState.value = machine.initialState;
+        DOM.finalStates.value = machine.finalStates;
+
+        // Reconstruir tabla de transiciones con las generadas
+        DOM.transitionsBody.innerHTML = '';
+        this.transitionRowCount = 0;
+        machine.transitions.forEach(t => this.addTransitionRow(t));
+      }
+    }
+    // ── FIN regeneración dinámica ──────────────────────────────────────────
+
     this.clearAllValidationErrors();
 
     const inputString = DOM.inputString.value.trim();
@@ -859,6 +904,10 @@ class UIController {
       Ejecutar Automáticamente
     `;
 
+    // Re-habilitar Iniciar para permitir probar una nueva cadena sin Reset
+    // (la regeneración dinámica se aplicará al siguiente Iniciar si selectedExercise sigue activo)
+    DOM.btnInit.disabled = false;
+
     if (type === 'accepted') {
       this.setMachineStatusBadge('accepted', 'Aceptada ✓');
       this.showToast('La máquina alcanzó un estado final', 'success');
@@ -876,6 +925,12 @@ class UIController {
     }
 
     this.machine = new TuringMachine();
+
+    // NOTA: NO se borra selectedExercise aquí.
+    // Si hay un ejercicio activo, el próximo Iniciar regenerará
+    // automáticamente las transiciones desde la cadena actual.
+    // selectedExercise solo se borra cuando el usuario edita la tabla
+    // manualmente (listener en bindEvents).
 
     // Reiniciar botones
     DOM.btnInit.disabled = false;
@@ -1074,15 +1129,13 @@ class UIController {
   }
 
   // ──────────────────────────────────────────────────────────
-  // Cargar Ejemplo (REFACTORIZADO)
-  // Usa ExerciseGenerators con generateTransitions(alphabet)
+  // Cargar Ejemplo (REFACTORIZADO — integración dinámica)
+  // Guarda el ejercicio seleccionado en this.selectedExercise.
+  // Las transiciones se regeneran en initMachine() desde la
+  // cadena real del usuario, no desde un alfabeto fijo.
   // ──────────────────────────────────────────────────────────
 
   loadExample(id) {
-    // Limpiar transiciones existentes
-    DOM.transitionsBody.innerHTML = '';
-    this.transitionRowCount = 0;
-
     // Mapeo de IDs a generadores
     const generatorMap = {
       1: 'replaceWithX',
@@ -1100,12 +1153,20 @@ class UIController {
 
     const generator = ExerciseGenerators[generatorKey];
 
-    // Generar transiciones con un alfabeto representativo no-binario
-    const representativeAlphabet = ['a', 'b', 'c'];
-    const result = generator.generateTransitions(representativeAlphabet);
+    // Guardar el ejercicio activo — se usará en initMachine() para
+    // regenerar transiciones desde el alfabeto real del usuario
+    this.selectedExercise = generatorKey;
 
-    // Detectar el alfabeto real desde la cadena de ejemplo generada
-    const detectedAlphabet = AlphabetDetector.detectInputAlphabet(result.defaultInput);
+    // Obtener la cadena de ejemplo y descripción usando un alfabeto
+    // representativo solo para extraer defaultInput y description
+    const preview = generator.generateTransitions(['a', 'b', 'c']);
+
+    // Detectar el alfabeto real desde la cadena de ejemplo
+    const detectedAlphabet = AlphabetDetector.detectInputAlphabet(preview.defaultInput);
+
+    // Regenerar con el alfabeto detectado desde defaultInput para
+    // mostrar las transiciones correctas en la tabla desde el inicio
+    const result = generator.generateTransitions(detectedAlphabet);
 
     // Calcular Γ automáticamente
     const tapeAlphabet = AlphabetDetector.buildTapeAlphabet(
@@ -1113,16 +1174,20 @@ class UIController {
       result.auxiliarySymbols || []
     );
 
-    // Llenar los campos de la UI
+    // Limpiar tabla de transiciones anterior
+    DOM.transitionsBody.innerHTML = '';
+    this.transitionRowCount = 0;
+
+    // Rellenar campos de la UI
     DOM.inputString.value = result.defaultInput;
     DOM.tapeAlphabet.value = tapeAlphabet.join(', ');
     DOM.initialState.value = result.initialState;
     DOM.finalStates.value = result.finalStates;
 
-    // Agregar las transiciones generadas a la tabla
+    // Mostrar las transiciones generadas en la tabla
     result.transitions.forEach(t => this.addTransitionRow(t));
 
-    this.showToast(`Ejemplo cargado: ${result.description}`, 'success');
+    this.showToast(`Ejemplo cargado: ${result.description}. Puedes cambiar la cadena y presionar Iniciar.`, 'success');
   }
 
   // ---- Notificaciones Toast ----

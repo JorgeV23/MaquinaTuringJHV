@@ -333,11 +333,15 @@ const ExerciseGenerators = {
                 };
             }
 
-            const symA = sorted[0]; // primer símbolo
-            const symB = sorted[1]; // segundo símbolo
+            const symA = sorted[0]; // primer símbolo a emparejar
+            const symB = sorted[1]; // segundo símbolo a emparejar
+
+            // Símbolos extra (sorted[2..]) que no participan en el emparejamiento.
+            // Se agregan transiciones "pass-through" para que la máquina no quede
+            // sin transición definida si la cadena los contiene.
+            const extraSymbols = sorted.slice(2);
 
             // ── q0: Buscar primer símbolo sin marcar ──
-            // Si symA → marcar X, ir a q1 (buscar symB)
             transitions.push({
                 state: 'q0',
                 readSymbol: symA,
@@ -345,7 +349,6 @@ const ExerciseGenerators = {
                 writeSymbol: 'X',
                 direction: 'D',
             });
-            // Si symB → marcar X, ir a q2 (buscar symA)
             transitions.push({
                 state: 'q0',
                 readSymbol: symB,
@@ -353,7 +356,6 @@ const ExerciseGenerators = {
                 writeSymbol: 'X',
                 direction: 'D',
             });
-            // Saltar marcados
             transitions.push({
                 state: 'q0',
                 readSymbol: 'X',
@@ -361,6 +363,16 @@ const ExerciseGenerators = {
                 writeSymbol: 'X',
                 direction: 'D',
             });
+            // Símbolos extra: saltar sin procesar
+            for (const s of extraSymbols) {
+                transitions.push({
+                    state: 'q0',
+                    readSymbol: s,
+                    nextState: 'q0',
+                    writeSymbol: s,
+                    direction: 'D',
+                });
+            }
             // Si B → todos emparejados → aceptar
             transitions.push({
                 state: 'q0',
@@ -392,6 +404,15 @@ const ExerciseGenerators = {
                 writeSymbol: 'X',
                 direction: 'D',
             });
+            for (const s of extraSymbols) {
+                transitions.push({
+                    state: 'q1',
+                    readSymbol: s,
+                    nextState: 'q1',
+                    writeSymbol: s,
+                    direction: 'D',
+                });
+            }
             // q1 + B → sin transición → RECHAZO (sobran symA)
 
             // ── q2: Vio symB, buscar symA sin marcar ──
@@ -416,6 +437,15 @@ const ExerciseGenerators = {
                 writeSymbol: 'X',
                 direction: 'D',
             });
+            for (const s of extraSymbols) {
+                transitions.push({
+                    state: 'q2',
+                    readSymbol: s,
+                    nextState: 'q2',
+                    writeSymbol: s,
+                    direction: 'D',
+                });
+            }
             // q2 + B → sin transición → RECHAZO (sobran symB)
 
             // ── q3: Regresar al inicio ──
@@ -440,6 +470,15 @@ const ExerciseGenerators = {
                 writeSymbol: 'X',
                 direction: 'I',
             });
+            for (const s of extraSymbols) {
+                transitions.push({
+                    state: 'q3',
+                    readSymbol: s,
+                    nextState: 'q3',
+                    writeSymbol: s,
+                    direction: 'I',
+                });
+            }
             transitions.push({
                 state: 'q3',
                 readSymbol: 'B',
