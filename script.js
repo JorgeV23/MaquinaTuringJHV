@@ -1143,6 +1143,8 @@ class UIController {
       3: 'appendSymbol',
       4: 'palindrome',
       5: 'equalCount',
+      6: 'parityCheck',
+      7: 'reverseString',
     };
 
     const generatorKey = generatorMap[id];

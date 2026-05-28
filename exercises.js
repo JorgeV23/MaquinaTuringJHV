@@ -497,4 +497,240 @@ const ExerciseGenerators = {
             };
         },
     },
+
+    // ──────────────────────────────────────────────────────────
+    // Ejercicio 6: Verificar paridad de longitud
+    // Verifica si la longitud de la cadena es PAR o IMPAR
+    // ──────────────────────────────────────────────────────────
+    parityCheck: {
+        generateTransitions(alphabet) {
+            const transitions = [];
+            const sorted = [...alphabet].sort();
+
+            // qPar: estado inicial y para longitudes pares
+            for (const sym of sorted) {
+                transitions.push({
+                    state: 'qPar',
+                    readSymbol: sym,
+                    nextState: 'qImpar',
+                    writeSymbol: sym,
+                    direction: 'D',
+                });
+            }
+            transitions.push({
+                state: 'qPar',
+                readSymbol: 'B',
+                nextState: 'qf_par',
+                writeSymbol: 'B',
+                direction: 'S',
+            });
+
+            // qImpar: estado para longitudes impares
+            for (const sym of sorted) {
+                transitions.push({
+                    state: 'qImpar',
+                    readSymbol: sym,
+                    nextState: 'qPar',
+                    writeSymbol: sym,
+                    direction: 'D',
+                });
+            }
+            transitions.push({
+                state: 'qImpar',
+                readSymbol: 'B',
+                nextState: 'qf_impar',
+                writeSymbol: 'B',
+                direction: 'S',
+            });
+
+            return {
+                defaultInput: 'abcd',
+                initialState: 'qPar',
+                finalStates: 'qf_par, qf_impar',
+                auxiliarySymbols: [],
+                transitions,
+                description: 'Verificar si la longitud es par o impar',
+            };
+        },
+    },
+
+    // ──────────────────────────────────────────────────────────
+    // Ejercicio 7: Invertir cadena
+    // Invierte el orden de la cadena dinámicamente
+    // ──────────────────────────────────────────────────────────
+    reverseString: {
+        generateTransitions(alphabet) {
+            const transitions = [];
+            const sorted = [...alphabet].sort();
+
+            // Marcadores auxiliares
+            const auxiliaryPool = 'XYZWVUTSNMKJHGFDPQR'.split('');
+            
+            // Buscar un marcador L que no esté en el alfabeto
+            let lIdx = 0;
+            while (lIdx < auxiliaryPool.length && sorted.includes(auxiliaryPool[lIdx])) {
+                lIdx++;
+            }
+            const L = auxiliaryPool[lIdx];
+            const usedMarkers = [L];
+            let poolIdx = lIdx + 1;
+
+            const M = {};
+            for (const sym of sorted) {
+                while (poolIdx < auxiliaryPool.length && sorted.includes(auxiliaryPool[poolIdx])) {
+                    poolIdx++;
+                }
+                if (poolIdx < auxiliaryPool.length) {
+                    M[sym] = auxiliaryPool[poolIdx];
+                    usedMarkers.push(auxiliaryPool[poolIdx]);
+                    poolIdx++;
+                }
+            }
+
+            const allMarkers = Object.values(M);
+
+            // q0: inicio de ciclo
+            for (const sym of sorted) {
+                transitions.push({
+                    state: 'q0',
+                    readSymbol: sym,
+                    nextState: `ir_fin_${sym}`,
+                    writeSymbol: L,
+                    direction: 'D',
+                });
+            }
+            for (const m of allMarkers) {
+                transitions.push({
+                    state: 'q0',
+                    readSymbol: m,
+                    nextState: 'limpiar_izq',
+                    writeSymbol: m,
+                    direction: 'S',
+                });
+            }
+            transitions.push({
+                state: 'q0',
+                readSymbol: 'B',
+                nextState: 'qf',
+                writeSymbol: 'B',
+                direction: 'S',
+            });
+
+            // ir_fin_X y swap_X
+            for (const sym of sorted) {
+                const searchState = `ir_fin_${sym}`;
+                const swapState = `swap_${sym}`;
+
+                for (const x of sorted) {
+                    transitions.push({
+                        state: searchState,
+                        readSymbol: x,
+                        nextState: searchState,
+                        writeSymbol: x,
+                        direction: 'D',
+                    });
+                }
+                for (const m of allMarkers) {
+                    transitions.push({
+                        state: searchState,
+                        readSymbol: m,
+                        nextState: swapState,
+                        writeSymbol: m,
+                        direction: 'I',
+                    });
+                }
+                transitions.push({
+                    state: searchState,
+                    readSymbol: 'B',
+                    nextState: swapState,
+                    writeSymbol: 'B',
+                    direction: 'I',
+                });
+
+                // swap_X
+                for (const x of sorted) {
+                    transitions.push({
+                        state: swapState,
+                        readSymbol: x,
+                        nextState: `volver_${x}`,
+                        writeSymbol: M[sym],
+                        direction: 'I',
+                    });
+                }
+                transitions.push({
+                    state: swapState,
+                    readSymbol: L,
+                    nextState: 'limpiar_izq',
+                    writeSymbol: M[sym],
+                    direction: 'S',
+                });
+            }
+
+            // volver_X
+            for (const x of sorted) {
+                const backState = `volver_${x}`;
+                for (const y of sorted) {
+                    transitions.push({
+                        state: backState,
+                        readSymbol: y,
+                        nextState: backState,
+                        writeSymbol: y,
+                        direction: 'I',
+                    });
+                }
+                transitions.push({
+                    state: backState,
+                    readSymbol: L,
+                    nextState: 'q0',
+                    writeSymbol: M[x],
+                    direction: 'D',
+                });
+            }
+
+            // limpiar_izq
+            for (const m of allMarkers) {
+                transitions.push({
+                    state: 'limpiar_izq',
+                    readSymbol: m,
+                    nextState: 'limpiar_izq',
+                    writeSymbol: m,
+                    direction: 'I',
+                });
+            }
+            transitions.push({
+                state: 'limpiar_izq',
+                readSymbol: 'B',
+                nextState: 'limpiar_der',
+                writeSymbol: 'B',
+                direction: 'D',
+            });
+
+            // limpiar_der
+            for (const sym of sorted) {
+                transitions.push({
+                    state: 'limpiar_der',
+                    readSymbol: M[sym],
+                    nextState: 'limpiar_der',
+                    writeSymbol: sym,
+                    direction: 'D',
+                });
+            }
+            transitions.push({
+                state: 'limpiar_der',
+                readSymbol: 'B',
+                nextState: 'qf',
+                writeSymbol: 'B',
+                direction: 'S',
+            });
+
+            return {
+                defaultInput: 'hola',
+                initialState: 'q0',
+                finalStates: 'qf',
+                auxiliarySymbols: usedMarkers,
+                transitions,
+                description: 'Invertir cadena dinámicamente',
+            };
+        },
+    },
 };
