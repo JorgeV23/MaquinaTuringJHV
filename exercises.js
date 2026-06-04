@@ -117,7 +117,7 @@ const ExerciseGenerators = {
                 readSymbol: 'B',
                 nextState: 'qf',
                 writeSymbol: symbolToAppend,
-                direction: 'S',
+                direction: 'I',
             });
 
             return {
@@ -295,26 +295,17 @@ const ExerciseGenerators = {
     },
 
     // ──────────────────────────────────────────────────────────
-    // Ejercicio 5: Igual cantidad de dos símbolos
-    // Antes: emparejar '0' con '1'
-    // Ahora: emparejar alphabet[0] con alphabet[1]
-    //        dinámicamente
+    // Ejercicio 5: Verificar lenguaje a^n b^n c^n
+    // Toma los 3 primeros símbolos del alfabeto y verifica
+    // que la cadena tenga la forma a^n b^n c^n.
     // ──────────────────────────────────────────────────────────
     equalCount: {
         generateTransitions(alphabet) {
             const sorted = [...alphabet].sort();
             const transitions = [];
 
-            // Necesitamos al menos 2 símbolos para emparejar
-            if (sorted.length < 2) {
-                // Caso degenerado: un solo símbolo, aceptar siempre (trivial)
-                transitions.push({
-                    state: 'q0',
-                    readSymbol: sorted[0],
-                    nextState: 'q0',
-                    writeSymbol: sorted[0],
-                    direction: 'D',
-                });
+            if (sorted.length < 3) {
+                // Caso degenerado: se requieren al menos 3 símbolos. Aceptamos solo cadena vacía.
                 transitions.push({
                     state: 'q0',
                     readSymbol: 'B',
@@ -322,67 +313,59 @@ const ExerciseGenerators = {
                     writeSymbol: 'B',
                     direction: 'S',
                 });
-
                 return {
-                    defaultInput: sorted[0].repeat(4),
+                    defaultInput: '',
                     initialState: 'q0',
                     finalStates: 'qf',
                     auxiliarySymbols: [],
                     transitions,
-                    description: 'Verificar cantidad (un solo símbolo)',
+                    description: 'Verificar a^n b^n c^n (requiere 3 símbolos)',
                 };
             }
 
-            const symA = sorted[0]; // primer símbolo a emparejar
-            const symB = sorted[1]; // segundo símbolo a emparejar
+            const symA = sorted[0];
+            const symB = sorted[1];
+            const symC = sorted[2];
 
-            // Símbolos extra (sorted[2..]) que no participan en el emparejamiento.
-            // Se agregan transiciones "pass-through" para que la máquina no quede
-            // sin transición definida si la cadena los contiene.
-            const extraSymbols = sorted.slice(2);
+            // Marcadores auxiliares únicos
+            const auxiliaryPool = 'XYZWVUTSNMKJHGFDPQR'.split('');
+            const markers = [];
+            let poolIdx = 0;
+            for (let i = 0; i < 3; i++) {
+                while (poolIdx < auxiliaryPool.length && sorted.includes(auxiliaryPool[poolIdx])) {
+                    poolIdx++;
+                }
+                if (poolIdx < auxiliaryPool.length) {
+                    markers.push(auxiliaryPool[poolIdx]);
+                    poolIdx++;
+                }
+            }
+            const [X, Y, Z] = markers;
 
-            // ── q0: Buscar primer símbolo sin marcar ──
+            // ── q0: Buscar symA ──
             transitions.push({
                 state: 'q0',
                 readSymbol: symA,
                 nextState: 'q1',
-                writeSymbol: 'X',
+                writeSymbol: X,
                 direction: 'D',
             });
             transitions.push({
                 state: 'q0',
-                readSymbol: symB,
-                nextState: 'q2',
-                writeSymbol: 'X',
+                readSymbol: Y,
+                nextState: 'q4',
+                writeSymbol: Y,
                 direction: 'D',
             });
-            transitions.push({
-                state: 'q0',
-                readSymbol: 'X',
-                nextState: 'q0',
-                writeSymbol: 'X',
-                direction: 'D',
-            });
-            // Símbolos extra: saltar sin procesar
-            for (const s of extraSymbols) {
-                transitions.push({
-                    state: 'q0',
-                    readSymbol: s,
-                    nextState: 'q0',
-                    writeSymbol: s,
-                    direction: 'D',
-                });
-            }
-            // Si B → todos emparejados → aceptar
             transitions.push({
                 state: 'q0',
                 readSymbol: 'B',
                 nextState: 'qf',
                 writeSymbol: 'B',
-                direction: 'S',
+                direction: 'I', // aceptar (n=0)
             });
 
-            // ── q1: Vio symA, buscar symB sin marcar ──
+            // ── q1: Vio symA, buscar symB ──
             transitions.push({
                 state: 'q1',
                 readSymbol: symA,
@@ -392,37 +375,20 @@ const ExerciseGenerators = {
             });
             transitions.push({
                 state: 'q1',
-                readSymbol: symB,
-                nextState: 'q3',
-                writeSymbol: 'X',
-                direction: 'I',
+                readSymbol: Y,
+                nextState: 'q1',
+                writeSymbol: Y,
+                direction: 'D',
             });
             transitions.push({
                 state: 'q1',
-                readSymbol: 'X',
-                nextState: 'q1',
-                writeSymbol: 'X',
+                readSymbol: symB,
+                nextState: 'q2',
+                writeSymbol: Y,
                 direction: 'D',
             });
-            for (const s of extraSymbols) {
-                transitions.push({
-                    state: 'q1',
-                    readSymbol: s,
-                    nextState: 'q1',
-                    writeSymbol: s,
-                    direction: 'D',
-                });
-            }
-            // q1 + B → sin transición → RECHAZO (sobran symA)
 
-            // ── q2: Vio symB, buscar symA sin marcar ──
-            transitions.push({
-                state: 'q2',
-                readSymbol: symA,
-                nextState: 'q3',
-                writeSymbol: 'X',
-                direction: 'I',
-            });
+            // ── q2: Vio symB, buscar symC ──
             transitions.push({
                 state: 'q2',
                 readSymbol: symB,
@@ -432,23 +398,20 @@ const ExerciseGenerators = {
             });
             transitions.push({
                 state: 'q2',
-                readSymbol: 'X',
+                readSymbol: Z,
                 nextState: 'q2',
-                writeSymbol: 'X',
+                writeSymbol: Z,
                 direction: 'D',
             });
-            for (const s of extraSymbols) {
-                transitions.push({
-                    state: 'q2',
-                    readSymbol: s,
-                    nextState: 'q2',
-                    writeSymbol: s,
-                    direction: 'D',
-                });
-            }
-            // q2 + B → sin transición → RECHAZO (sobran symB)
+            transitions.push({
+                state: 'q2',
+                readSymbol: symC,
+                nextState: 'q3',
+                writeSymbol: Z,
+                direction: 'I',
+            });
 
-            // ── q3: Regresar al inicio ──
+            // ── q3: Regresar al inicio para buscar siguiente symA ──
             transitions.push({
                 state: 'q3',
                 readSymbol: symA,
@@ -465,35 +428,56 @@ const ExerciseGenerators = {
             });
             transitions.push({
                 state: 'q3',
-                readSymbol: 'X',
+                readSymbol: Y,
                 nextState: 'q3',
-                writeSymbol: 'X',
+                writeSymbol: Y,
                 direction: 'I',
             });
-            for (const s of extraSymbols) {
-                transitions.push({
-                    state: 'q3',
-                    readSymbol: s,
-                    nextState: 'q3',
-                    writeSymbol: s,
-                    direction: 'I',
-                });
-            }
             transitions.push({
                 state: 'q3',
-                readSymbol: 'B',
+                readSymbol: Z,
+                nextState: 'q3',
+                writeSymbol: Z,
+                direction: 'I',
+            });
+            transitions.push({
+                state: 'q3',
+                readSymbol: X,
                 nextState: 'q0',
-                writeSymbol: 'B',
+                writeSymbol: X,
                 direction: 'D',
+            });
+
+            // ── q4: Verificar que solo queden Y, Z y B ──
+            transitions.push({
+                state: 'q4',
+                readSymbol: Y,
+                nextState: 'q4',
+                writeSymbol: Y,
+                direction: 'D',
+            });
+            transitions.push({
+                state: 'q4',
+                readSymbol: Z,
+                nextState: 'q4',
+                writeSymbol: Z,
+                direction: 'D',
+            });
+            transitions.push({
+                state: 'q4',
+                readSymbol: 'B',
+                nextState: 'qf',
+                writeSymbol: 'B',
+                direction: 'I',
             });
 
             return {
-                defaultInput: symA + symA + symB + symB,
+                defaultInput: symA + symA + symB + symB + symC + symC,
                 initialState: 'q0',
                 finalStates: 'qf',
-                auxiliarySymbols: ['X'],
+                auxiliarySymbols: [X, Y, Z],
                 transitions,
-                description: `Igual cantidad de "${symA}" y "${symB}"`,
+                description: `Verificar lenguaje ${symA}^n ${symB}^n ${symC}^n`,
             };
         },
     },
@@ -522,7 +506,7 @@ const ExerciseGenerators = {
                 readSymbol: 'B',
                 nextState: 'qf_par',
                 writeSymbol: 'B',
-                direction: 'S',
+                direction: 'I',
             });
 
             // qImpar: estado para longitudes impares
@@ -540,7 +524,7 @@ const ExerciseGenerators = {
                 readSymbol: 'B',
                 nextState: 'qf_impar',
                 writeSymbol: 'B',
-                direction: 'S',
+                direction: 'I',
             });
 
             return {
@@ -565,7 +549,7 @@ const ExerciseGenerators = {
 
             // Marcadores auxiliares
             const auxiliaryPool = 'XYZWVUTSNMKJHGFDPQR'.split('');
-            
+
             // Buscar un marcador L que no esté en el alfabeto
             let lIdx = 0;
             while (lIdx < auxiliaryPool.length && sorted.includes(auxiliaryPool[lIdx])) {
@@ -605,7 +589,7 @@ const ExerciseGenerators = {
                     readSymbol: m,
                     nextState: 'limpiar_izq',
                     writeSymbol: m,
-                    direction: 'S',
+                    direction: 'I',
                 });
             }
             transitions.push({
@@ -613,7 +597,7 @@ const ExerciseGenerators = {
                 readSymbol: 'B',
                 nextState: 'qf',
                 writeSymbol: 'B',
-                direction: 'S',
+                direction: 'I',
             });
 
             // ir_fin_X y swap_X
@@ -662,7 +646,7 @@ const ExerciseGenerators = {
                     readSymbol: L,
                     nextState: 'limpiar_izq',
                     writeSymbol: M[sym],
-                    direction: 'S',
+                    direction: 'I',
                 });
             }
 
@@ -720,7 +704,7 @@ const ExerciseGenerators = {
                 readSymbol: 'B',
                 nextState: 'qf',
                 writeSymbol: 'B',
-                direction: 'S',
+                direction: 'I',
             });
 
             return {
